@@ -1,6 +1,26 @@
 from rnamodif.data_utils.datamap import experiment_files
 from pathlib import Path
 import random
+import pickle
+
+def get_5eu_chr_split(tombofilter=False):
+    path = '/home/jovyan/RNAModif/rnamodif/util_notebooks/2022_chr_split.pickle'
+    if(tombofilter):
+        path = '/home/jovyan/RNAModif/rnamodif/util_notebooks/2022_chr_split_tombofilter.pickle'
+    with open(path, 'rb') as handle:
+        split_dict = pickle.load(handle)
+    pos_split = {
+        'exp':'5eu_2022_nia',
+        'train_pos_files':split_dict['5eu_2022_nia_chr2-X'],
+        'valid_pos_files':split_dict['5eu_2022_nia_chr1'],
+    }
+    neg_split = {
+        'exp':'UNM_2022_nia',
+        'train_neg_files':split_dict['UNM_2022_nia_chr2-X'],
+        'valid_neg_files':split_dict['UNM_2022_nia_chr1'],
+    }
+    return [pos_split, neg_split]
+
 
 def get_valid_portions(splits):
     new_splits = []

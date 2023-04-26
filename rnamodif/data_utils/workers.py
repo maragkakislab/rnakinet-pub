@@ -78,3 +78,53 @@ def worker_init_simple_fn(worker_id):
     # print(sorted([int(Path(x).stem.split('_')[-1]) for x in dataset.positive_files]))
     
     assert(len(dataset.files)>0)
+
+def worker_init_event_batch_fn_single_dset(worker_id):
+    worker_info = torch.utils.data.get_worker_info()
+    dataset = worker_info.dataset
+    total_workers = worker_info.num_workers
+    current_worker = worker_id
+    
+    pos_b = dataset.pos_dset.available_batch_names
+    neg_b = dataset.neg_dset.available_batch_names
+    
+    if(total_workers <= len(pos_b)):
+        dataset.pos_dset.available_batch_names = [el for i,el in enumerate(pos_b) if i%total_workers == current_worker]
+    else:
+        dataset.pos_dset.available_batch_names = [el for i,el in enumerate(pos_b) if current_worker%len(pos_b) == i]
+       
+    if(total_workers <= len(neg_b)):
+        dataset.neg_dset.available_batch_names = [el for i,el in enumerate(neg_b) if i%total_workers == current_worker]
+    else: 
+        dataset.neg_dset.available_batch_names = [el for i,el in enumerate(neg_b) if current_worker%len(neg_b) == i]
+    
+    # print('worker', current_worker)
+    # print('pos batches', dataset.pos_dset.available_batch_names)
+    # print('neg_batches', dataset.neg_dset.available_batch_names)
+       
+    assert(len(dataset.pos_dset.available_batch_names)>0)
+    assert(len(dataset.neg_dset.available_batch_names)>0) 
+    
+    
+# def worker_init_event_batch_fn(worker_id):
+#     worker_info = torch.utils.data.get_worker_info()
+#     dataset = worker_info.dataset
+#     total_workers = worker_info.num_workers
+#     current_worker = worker_id
+    
+#     for dset in dataset.pos_dsets+dataset.neg_dsets:
+#         print(dset.available_batch_names)
+    
+#     for dset in dataset.pos_dsets+dataset.neg_dsets:
+#         b = dset.available_batch_names
+    
+#         if(total_workers <= len(b)):
+#             b = [el for i,el in enumerate(b) if i%total_workers == current_worker]
+#         else:
+#             b = [el for i,el in enumerate(b) if current_worker%len(b) == i]
+    
+#         assert(len(b)>0)
+    
+#     print('after')
+#     for dset in dataset.pos_dsets+dataset.neg_dsets:
+#         print(dset.available_batch_names)

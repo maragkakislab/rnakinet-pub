@@ -21,8 +21,9 @@ class Permute(torch.nn.Module):
 class RodanPretrainedMIL(pl.LightningModule):
     def __init__(self, pretrained_lr=5e-4, my_layers_lr=2e-3, warmup_steps = 10000):
         super().__init__()
-        rodan_path = './RODAN/rna.torch'
-        # rodan_path = '/home/jovyan/RNAModif/RODAN/rna.torch'
+        # rodan_path = './RODAN/rna.torch'
+        print('TODO fix rodan path')
+        rodan_path = '/home/jovyan/RNAModif/RODAN/rna.torch'
 
         torchdict = torch.load(rodan_path, map_location="cpu")
         origconfig = torchdict["config"]

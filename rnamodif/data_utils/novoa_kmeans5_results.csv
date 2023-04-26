@@ -1,0 +1,3 @@
+,model,dset,acc
+0,novoa_kmeans,nov,0.567
+1,novoa_kmeans,z33,0.48

@@ -16,8 +16,8 @@ def model_dataset_eval(model, dataset, workers):
     metrics = trainer.validate(model, valid_loader)
     return metrics
     
-def get_trained_model(architecture, checkpoint):
-    return architecture().load_from_checkpoint(checkpoint)
+def get_trained_model(architecture, checkpoint, arch_params={}):
+    return architecture(**arch_params).load_from_checkpoint(checkpoint, **arch_params)
 
 def run_eval(config):
     if('read_blacklist' not in config.keys()):
