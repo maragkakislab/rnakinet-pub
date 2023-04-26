@@ -47,9 +47,10 @@ class CNN(pl.LightningModule):
       #   nn.Sigmoid()  
       # )
 
-      self.acc = torchmetrics.Accuracy()
+      self.acc = torchmetrics.Accuracy(task='binary')
 
     def forward(self, x):
+      x = x.permute(0,1).unsqueeze(1)
       return self.net(x)
 
     def configure_optimizers(self):
@@ -59,21 +60,21 @@ class CNN(pl.LightningModule):
 
     def training_step(self, train_batch, batch_idx):
       x,y = train_batch
-      output = self.net(x)
+      output = self(x)
       # loss = F.binary_cross_entropy(output, y)
       loss = F.binary_cross_entropy_with_logits(output, y)
       self.log('train_loss', loss)
-      acc =self.acc(output, y.int())
+      acc =self.acc(torch.sigmoid(output), y.int())
       self.log('train acc', acc)
       return loss
 
     def validation_step(self, val_batch, batch_idx):
       x,y = val_batch
-      output = self.net(x)
+      output = self(x)
       # loss = F.binary_cross_entropy(output, y)
       loss = F.binary_cross_entropy_with_logits(output, y)
       self.log('valid_loss', loss)
-      acc = self.acc(output, y.int())
+      acc = self.acc(torch.sigmoid(output), y.int())
       self.log('valid acc', acc)
 
       

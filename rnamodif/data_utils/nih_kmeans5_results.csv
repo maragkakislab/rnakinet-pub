@@ -1,0 +1,3 @@
+,model,dset,acc
+0,nih_kmeans,z33,0.542
+1,nih_kmeans,nov,0.486

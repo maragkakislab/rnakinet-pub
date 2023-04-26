@@ -10,7 +10,8 @@ from rnamodif.architectures.rodan_heads import sotfmax_linear, softmax_conv, mis
 class RodanSimple(pl.LightningModule):
     def __init__(self, head= softmax_conv(input_size=5, kernel_size=5), pretrained_lr=5e-4, my_layers_lr=2e-3, warmup_steps = 10000):
         super().__init__()
-        rodan_path = './RODAN/rna.torch'
+        print('TODO fix path')
+        rodan_path = '../../RODAN/rna.torch'
         torchdict = torch.load(rodan_path, map_location="cpu")
         origconfig = torchdict["config"]
         d = origconfig

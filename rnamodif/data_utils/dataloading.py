@@ -14,6 +14,7 @@ import math
 from rnamodif.data_utils.trimming import primer_trim
 from rnamodif.data_utils.read_utils import process_read
 from rnamodif.data_utils.generators import alternating_gen, uniform_gen, sequential_gen
+from tqdm import tqdm
 
 def get_valid_dataset_unlimited(splits, window=1000, verbose=1, read_blacklist=[], normalization='rodan', trim_primer=False):
     def process_files_fully(files, exp, label, window, normalization, trim_primer):
@@ -25,7 +26,7 @@ def get_valid_dataset_unlimited(splits, window=1000, verbose=1, read_blacklist=[
                     if(read_blacklist):
                         if(read.read_id in read_blacklist):
                             continue
-                    x = process_read(read, window=None, normalization=normalization, trim_primer=trim_primer) #getting the full read and slicing later
+                    x = process_read(read, window=None) #getting the full read and slicing later
                     y = np.array(label)
                     for start in range(0, len(x), window)[:-1]: #Cutoff the last incomplete signal
                         stop = start+window
@@ -67,19 +68,17 @@ def get_valid_dataset_unlimited(splits, window=1000, verbose=1, read_blacklist=[
 
 
 class FullTestDataset(IterableDataset):
-        def __init__(self, files, window, normalization, trim_primer, read_limit, stride):
+        def __init__(self, files, window, read_limit, stride):
             self.files = files
             self.window = window
-            self.normalization=normalization
-            self.trim_primer=trim_primer
             self.read_limit = read_limit
             self.stride = stride
             
-        def process_files_fully(self, files, window, normalization, trim_primer):
+        def process_files_fully(self, files, window):
             for fast5 in files: 
                 with get_fast5_file(fast5, mode='r') as f5:
                     for i, read in enumerate(f5.get_reads()):
-                        x = process_read(read, window=None, normalization=normalization, trim_primer=trim_primer) 
+                        x = process_read(read, window=None) 
                         for start in range(0, len(x), self.stride):
                             stop = start+window
                             if(stop >= len(x)):
@@ -103,13 +102,83 @@ class FullTestDataset(IterableDataset):
                         current_read = identifier['readid']
                         if(last_read and last_read!=current_read):
                             reads_processed+=1
-                            if(reads_processed >= read_limit):
+                            if(reads_processed >= self.read_limit):
                                 break
                         last_read=current_read
                         yield((signal, identifier))
                 return limited_iterator()
                         
-            return self.process_files_fully(self.files, window=self.window, normalization=self.normalization, trim_primer=self.trim_primer)
+            return self.process_files_fully(self.files, window=self.window)
         
 def get_test_dataset(files, window=1000, normalization='rodan', trim_primer=False, stride=1000, read_limit=None):
     return FullTestDataset(files, window=window, normalization=normalization, trim_primer=trim_primer, read_limit=read_limit, stride=stride)
+
+
+def get_valid_dataset_fullreads(splits, per_dset_read_limit, window=4096, stride=4096):
+    def process_files_fully(files, exp, label, window, stride):
+        for fast5 in files: #TODO optional shuffle
+            with get_fast5_file(fast5, mode='r') as f5:
+                for i, read in enumerate(f5.get_reads()):
+                    x = process_read(read, window=None)
+                    # assert len(x) > 0
+                    # if(len(x) <= 0):
+                        # continue
+                    y = np.array(label)
+                    for start in range(0, len(x), stride)[:-1]: #Cutoff the last incomplete signal
+                        stop = start+window
+                        identifier = {'file':str(fast5),
+                                      'readid':read.read_id,
+                                      'read_index_in_file':i,
+                                      'start':start,
+                                      'stop':stop,
+                                      'label':label,
+                                      'exp':exp,
+                                     }
+                        
+                        yield x[start:stop].reshape(-1,1).swapaxes(0,1), np.array([y], dtype=np.float32), identifier
+    
+    def keycheck(dictionary, key):
+        return key in dictionary.keys() and len(dictionary[key]) > 0
+    
+    pos_files = [(s['exp'],s['valid_pos_files']) for s in splits if keycheck(s, 'valid_pos_files')]
+    neg_files = [(s['exp'],s['valid_neg_files']) for s in splits if keycheck(s, 'valid_neg_files')]
+    
+    class FullDataset(Dataset):
+        def __init__(self, positive_files, negative_files, window, stride, per_dset_read_limit):
+            pos_gens = []
+            for exp,files in positive_files:
+                pos_gens.append(process_files_fully(files, exp, label=1, window=window, stride=stride))
+            neg_gens = []
+            for exp,files in negative_files:
+                neg_gens.append(process_files_fully(files, exp, label=0, window=window, stride=stride))
+            # pos_gen = alternating_gen(pos_gens)
+            # neg_gen = alternating_gen
+            # gen = sequential_gen(pos_gens+neg_gens)
+            items = []
+            print('Generating valid dataset')
+            for gen in tqdm(pos_gens+neg_gens):
+                reads_processed = 0
+                last_read = None
+                while True:
+                    x,y,identifier = next(gen)
+                    
+                    current_read = identifier['readid']
+                    if(last_read and last_read!=current_read):
+                        reads_processed+=1
+                        if(reads_processed>=per_dset_read_limit):
+                            # print(identifier['exp'], reads_processed)
+                            break
+                    last_read = current_read
+                    items.append((x,y,identifier))
+                    
+            self.items = items
+            # print('Generating valid dataset DONE')
+
+        def __len__(self):
+            return len(self.items)
+        
+        def __getitem__(self, idx):
+            return self.items[idx]
+            
+    
+    return FullDataset(pos_files, neg_files, window=window, stride=stride, per_dset_read_limit=per_dset_read_limit)

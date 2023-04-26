@@ -13,9 +13,10 @@ import numpy as np
 from rnamodif.data_utils.workers import worker_init_simple_fn, worker_init_fn, worker_init_fn_multisplit
 from rnamodif.data_utils.generators import alternating_gen, uniform_gen
 from rnamodif.data_utils.read_utils import process_read
+from rnamodif.data_utils.dataloading import get_valid_dataset_fullreads
 
 class nanopore_datamodule(pl.LightningDataModule):
-    def __init__(self, splits, verbose=0, workers=32, batch_size=256, valid_limit=None, window=1000, read_blacklist=None, normalization='rodan', trim_primer=False):
+    def __init__(self, splits, verbose=0, workers=32, batch_size=256, valid_limit=None, window=1000, read_blacklist=None, valid_dset_fullreads=False):
         #TODO read blacklist -> rename to positives read blacklist (pos only so far)
         
         super().__init__()
@@ -27,9 +28,7 @@ class nanopore_datamodule(pl.LightningDataModule):
         self.window = window
         self.positives_blacklist = read_blacklist
         self.splits = splits
-        self.normalization = normalization
-        self.trim_primer = trim_primer
-        
+        self.valid_dset_fullreads = valid_dset_fullreads
         
     def setup(self, stage=None):
         if(stage == 'fit' or stage==None):
@@ -42,19 +41,30 @@ class nanopore_datamodule(pl.LightningDataModule):
                 window=self.window, 
                 verbose=self.verbose, 
                 blacklist=self.positives_blacklist,
-                normalization=self.normalization, 
-                trim_primer=self.trim_primer
             )
-            self.valid_dataset = MyMappedDatasetMixed(
-                pos_files = [(s['exp'],s['valid_pos_files']) for s in self.splits if keycheck(s, 'valid_pos_files')], 
-                neg_files = [(s['exp'],s['valid_neg_files']) for s in self.splits if keycheck(s, 'valid_neg_files')], 
-                window=self.window, 
-                limit=self.valid_limit, 
-                verbose=self.verbose, 
-                blacklist=self.positives_blacklist,
-                normalization=self.normalization, 
-                trim_primer=self.trim_primer
-            )
+            if(self.valid_dset_fullreads):
+                self.valid_dataset = get_valid_dataset_fullreads(self.splits, per_dset_read_limit=self.valid_limit, window=self.window, stride=self.window)
+            else:
+                print('temporary using iterable generator for valid')
+                self.valid_dataset = MyIterableDatasetMixed(
+                    pos_files = [(s['exp'],s['valid_pos_files']) for s in self.splits if keycheck(s, 'valid_pos_files')], 
+                    neg_files = [(s['exp'],s['valid_neg_files']) for s in self.splits if keycheck(s, 'valid_neg_files')], 
+                    window=self.window, 
+                    limit=self.valid_limit, 
+                    verbose=self.verbose, 
+                    blacklist=self.positives_blacklist,
+                )
+            
+            # self.valid_dataset = MyMappedDatasetMixed(
+            #     pos_files = [(s['exp'],s['valid_pos_files']) for s in self.splits if keycheck(s, 'valid_pos_files')], 
+            #     neg_files = [(s['exp'],s['valid_neg_files']) for s in self.splits if keycheck(s, 'valid_neg_files')], 
+            #     window=self.window, 
+            #     limit=self.valid_limit, 
+            #     verbose=self.verbose, 
+            #     blacklist=self.positives_blacklist,
+            #     normalization=self.normalization, 
+            #     trim_primer=self.trim_primer
+            # )
                 
             
     def train_dataloader(self):
@@ -68,7 +78,7 @@ class nanopore_datamodule(pl.LightningDataModule):
         
 
 class MyIterableDatasetMixed(IterableDataset):
-    def __init__(self, pos_files, neg_files, window, normalization, trim_primer, verbose=0, blacklist=None):
+    def __init__(self, pos_files, neg_files, window, limit=None, verbose=0, blacklist=None):
         #TODO shuffle here because workers get low amount of files -> shuffle doesnt matter
         #Shuffle before dataset? Where does worker get its 'copy' ? MAke sure all workers have disjoint sets
         self.positive_files = pos_files #TODO rename? array_of_arrays_of_pos_files
@@ -76,8 +86,7 @@ class MyIterableDatasetMixed(IterableDataset):
         self.window = window
         self.verbose = verbose
         self.blacklist = blacklist
-        self.normalization = normalization
-        self.trim_primer = trim_primer
+        self.limit=limit
    
     def get_stream(self):
         pos_gens = [
@@ -88,9 +97,7 @@ class MyIterableDatasetMixed(IterableDataset):
                 window=self.window, 
                 verbose=self.verbose, 
                 shuffle=True, 
-                blacklist=self.blacklist,
-                normalization=self.normalization, 
-                trim_primer=self.trim_primer) for (exp,f) in self.positive_files
+                blacklist=self.blacklist) for (exp,f) in self.positive_files
         ]
         neg_gens = [
             process_files(
@@ -100,31 +107,33 @@ class MyIterableDatasetMixed(IterableDataset):
                 window=self.window, 
                 verbose=self.verbose, 
                 shuffle=True, 
-                blacklist=self.blacklist,
-                normalization=self.normalization, 
-                trim_primer=self.trim_primer) for (exp,f) in self.negative_files
+                blacklist=self.blacklist) for (exp,f) in self.negative_files
         ]
         #Uniformly sampling from all splits across single label
         pos_gen = uniform_gen(pos_gens)
         neg_gen = uniform_gen(neg_gens)
         #Uniformly sampling from positives/negatives
         gen = uniform_gen([pos_gen, neg_gen])
-        while True:
-            yield next(gen)
-  
+        
+        #ADDED
+        if(self.limit):
+            for _ in range(self.limit):
+                yield next(gen)
+        else:
+            while True:
+                yield next(gen)
+
     def __iter__(self):
         return self.get_stream()
         
 class MyMappedDatasetMixed(Dataset):
-    def __init__(self, pos_files, neg_files, window, normalization, trim_primer, limit=None, verbose=0, blacklist=None):
+    def __init__(self, pos_files, neg_files, window, limit=None, verbose=0, blacklist=None):
         self.pos_files = pos_files
         self.neg_files = neg_files
         self.window = window
         self.limit = limit
         self.verbose = verbose
         self.blacklist = blacklist
-        self.normalization = normalization
-        self.trim_primer = trim_primer
         self.items = self.get_data()
         
         
@@ -136,7 +145,7 @@ class MyMappedDatasetMixed(Dataset):
         for exp,files in self.pos_files:
             files_gens = []
             for file in files:
-                gen = process_files([file], exp=exp,label=1, window=self.window, verbose=self.verbose, blacklist=self.blacklist, normalization=self.normalization, trim_primer=self.trim_primer, shuffle=True)
+                gen = process_files([file], exp=exp,label=1, window=self.window, verbose=self.verbose, blacklist=self.blacklist, shuffle=True)
                 files_gens.append(gen)
             exp_gen = alternating_gen(files_gens)
             pos_gens.append(exp_gen)
@@ -145,7 +154,7 @@ class MyMappedDatasetMixed(Dataset):
         for exp,files in self.neg_files:
             files_gens = []
             for file in files:
-                gen = process_files([file], exp=exp,label=0, window=self.window, verbose=self.verbose, blacklist=self.blacklist, normalization=self.normalization, trim_primer=self.trim_primer, shuffle=True)
+                gen = process_files([file], exp=exp,label=0, window=self.window, verbose=self.verbose, blacklist=self.blacklist, shuffle=True)
                 files_gens.append(gen)
             exp_gen = alternating_gen(files_gens)
             neg_gens.append(exp_gen)
@@ -166,7 +175,34 @@ class MyMappedDatasetMixed(Dataset):
     def __getitem__(self, idx):
         return self.items[idx]
 
-def process_files(files, exp, label, window, verbose, shuffle, normalization, trim_primer, blacklist=None):
+def process_files(files, exp, label, window, verbose, shuffle, blacklist=None):
+    while True:
+        if(shuffle):
+            random.shuffle(files)
+        for fast5 in files:
+            if(verbose ==2):
+                print(f'{Path(fast5).stem}[-{label}-]')
+            try:
+                with get_fast5_file(fast5, mode='r') as f5:
+                    for read in f5.get_reads():
+                        if(blacklist):
+                            if(read.read_id in blacklist):
+                                #TODO possible to optimize blacklist by storing file-wise reads (process files goes through 1 file at a time) and doing if read.id in filewise_reads_list
+                                continue
+                        x = process_read(read, window)
+                        y = np.array(label)
+                        if(len(x) == 0):
+                            print('skipping')
+                            continue
+                        #TODO put to tensors?
+            
+                        yield x.reshape(-1,1).swapaxes(0,1), np.array([y], dtype=np.float32), exp
+            except OSError as error:
+                print(error)
+                continue
+                
+                
+def process_files_old(files, exp, label, window, verbose, shuffle, normalization, trim_primer, blacklist=None):
     while True:
         if(shuffle):
             random.shuffle(files)
