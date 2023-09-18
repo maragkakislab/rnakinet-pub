@@ -1,24 +1,31 @@
 # RNAModif
 Project to detect 5eu-modified reads from raw nanopore sequencing signal
 
-## Repository structure
+# Instalation
+```sh
+git clone https://github.com/maragkakislab/RNAModif.git
+conda create -n snakemake_env -c bioconda snakemake
+conda activate snakemake_env
+pip install -e .
+```
 
-[data_utils](rnamodif/data_utils/)
-- Helper functions for processing and loading data
 
-[inference](rnamodif/inference)
-- Snakemake pipeline to predict fast5 reads
+# Usage
+Open ```RNAModif/rnamodif/workflow/Snakemake``` file and add your data path to the ```name_to_fast5_path``` dictionary. Then run:
 
-[preprocessing](rnamodif/preprocessing)
-- Snakemake pipeline to preprocess files for training purposes
+```sh
+cd RNAModif/rnamodif/workflow
+snakemake --cores 64 --use-conda
+```
 
-[training](rnamodif/training)
-- Jupyter notebooks for individual training experiments and logging
+This generates prediction csv file in ```RNAModif/rnamodif/workflow/outputs/predictions/CUSTOM_allneg_maxpool/<your_experiment_name>/max_pooling.csv```
 
-[Result visualization](rnamodif/Result_visualization.ipynb)
-- Jupyter notebook to visualize predictions
+The file contains the following columns:
 
-[Model](rnamodif/model.py)
-- Architecture and optimization logic for the trained model
+```read_id``` - the read identifier from the fast5 file
+
+```5eu_mod_score``` - the 5eu modification score of the read (from 0 to 1)
+
+```5eu_modified_prediction``` - the 5eu modification prediction of the read (True = 5eu modified, False = unmodified) based on the best model threshold
 
 
