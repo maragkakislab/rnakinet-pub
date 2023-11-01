@@ -101,7 +101,8 @@ class ExperimentData:
 
     
     
-
+    
+# References downloaded from ENSEMBL
 # transcript-gene.tab downloaded and renamed from 
 # http://useast.ensembl.org/biomart/martview/989e4fff050168c3154e5398a6f27dde
 
@@ -190,7 +191,7 @@ for exp_name in two_hour_5eu_exps:
         flowcell='FLO-MIN106',
         genome=human_genome,
         transcriptome=human_transcriptome,
-        halflives_name_to_file={'DRB':'halflives_data/experiments/hl_drb_renamed.tsv'}, #TODO tani halflives rename?
+        halflives_name_to_file={'DRB':'halflives_data/experiments/hl_drb_renamed.tsv'}, #tani halflives
         time=2.0,
         gene_transcript_table=human_gene_transcript_table,
     )
@@ -255,7 +256,7 @@ for exp_name in inhouse_mouse:
     experiments_data[exp_name] = exp_data
     
     
-#TODO remove _TEST splits (now needed for plotting, but refactored code should remove this)
+#TODO remove _TEST splits (now needed for plotting)
 test_splits = [
     
     '20180327_1102_K562_5EU_0_unlabeled_run_TEST',
@@ -287,7 +288,7 @@ for exp_name in test_splits:
     )
     experiments_data[exp_name] = exp_data
 
-#TODO remove _TRAIN splits (now needed for plotting, but refactored code should remove this)
+#TODO remove _TRAIN splits (now needed for plotting)
 train_splits = [
     '20180327_1102_K562_5EU_0_unlabeled_run_TRAIN',
     '20180514_1054_K562_5EU_1440_labeled_run_TRAIN',
@@ -323,10 +324,9 @@ experiments_data['ALL_NoArs60'] = ExperimentData(
     transcriptome=human_transcriptome,
     gene_transcript_table=human_gene_transcript_table,
     time=2.0,
-    halflives_name_to_file={'DRB':'halflives_data/experiments/hl_drb_renamed.tsv'}, #TODO tani halflives rename?
+    halflives_name_to_file={'DRB':'halflives_data/experiments/hl_drb_renamed.tsv'}, #tani halflives
 )
  
-    
 
 default_train_positives = [
     '20220303_hsa_dRNA_HeLa_5EU_polyA_REL5_2'
@@ -338,8 +338,7 @@ default_train_negatives = [
     '20201022_hsa_dRNA_Neuron_TDP_5P_1',
 ]
 
-#TODO delete API KEY (comet logging)
-api_key = "TEVQbgxxvilM1WdTyqZLJ57ac"
+api_key = "YOUR_COMET_API_KEY"
 
 training_configs  = {
     'rnakinet': {
@@ -362,7 +361,7 @@ training_configs  = {
         'grad_acc':64,
         'early_stopping_patience':50, 
         'comet_api_key':api_key,
-        'comet_project_name':'RNAModif', #TODO rename
+        'comet_project_name':'RNAkinet',
         'logging_step':500,
         'enable_progress_bar':'no',
         'log_to_file':True,
@@ -384,7 +383,7 @@ training_configs  = {
         'grad_acc':64,
         'early_stopping_patience':50, 
         'comet_api_key':api_key,
-        'comet_project_name':'RNAModif', #TODO rename
+        'comet_project_name':'RNAkinet',
         'logging_step':500,
         'enable_progress_bar':'no',
         'log_to_file':True,
