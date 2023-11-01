@@ -25,27 +25,16 @@ class ModelInferenceInfo():
 
 models_data = {}
 model_name_to_args = {
-    'CUSTOM_allneg_maxpool':{
+    'rnakinet':{
         'path':'../checkpoints_pl/2022_mine_allneg/last-Copy5.ckpt',
         'threshold': 0.5,
         'arch': 'cnn_gru',
     },
-    'unlimited_standard_allneg':{
+    'rnakinet_tl':{
         'path':'checkpoints_pl/2022_uncut_allneg/last-Copy1_8624step.ckpt',
         'threshold': 0.75,
         'arch': 'rodan',
     },
-    #TODO fix paths to models
-    # 'rnakinet':{
-    #     'path':'../checkpoints_pl/rnakinet/model.ckpt',
-    #     'threshold': 0.5,
-    #     'arch': 'cnn_gru',
-    # },
-    # 'rnakinet_tl':{
-    #     'path':'checkpoints_pl/rnakinet_tl/model.ckpt',
-    #     'threshold': 0.75,
-    #     'arch': 'rodan',
-    # },
 }
 
 for model_name, model_args in model_name_to_args.items():
@@ -167,7 +156,7 @@ comparison_groups = {
 }
 
 model_comparison_groups = {
-    'ALL':['CUSTOM_allneg_maxpool']#,'unlimited_standard_allneg'],#,'CNN_RNN_maydata_weighted'],
+    'ALL':['rnakinet'],
 }
 
 datastats_groups = {
