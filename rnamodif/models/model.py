@@ -5,7 +5,6 @@ from types import SimpleNamespace
 import numpy as np
 import re
 from sklearn.metrics import roc_auc_score
-from RODAN.basecall import load_model
 from collections import defaultdict
 
 
@@ -26,81 +25,64 @@ class RNNPooling(torch.nn.Module):
         return concat
 
 
-class RodanPretrained(pl.LightningModule):
+class MyModel(pl.LightningModule):
     def __init__(
             self,
             lr=1e-3,
             warmup_steps=1000,
             wd=0.01,
-            frozen_layers=0,
-            gru_layers=1,
-            gru_dropout=0,
-            gru_hidden=32,
-            weighted_loss=False,
-            logging_steps=1,):
+            logging_steps=1):
 
         super().__init__()
+        self.lr = lr
+        self.wd = wd
+        self.warmup_steps=warmup_steps
 
-        # Loading the RODAN backbone
-        torchdict = torch.load(
-            '/home/jovyan/RNAModif/RODAN/rna.torch', map_location="cpu")
-        origconfig = torchdict["config"]
-        args = {
-            'debug': False,  # True prints out more info
-            'arch': None,
-        }
-
-        # Architecture composition
-        self.trainable_rodan, device = load_model(
-            '/home/jovyan/RNAModif/RODAN/rna.torch', 
-            config=SimpleNamespace(**origconfig), 
-            args=SimpleNamespace(**args)
-        )
         self.head = torch.nn.Sequential(
+            torch.nn.Conv1d(in_channels=1, out_channels=8, kernel_size=3),
+            torch.nn.ReLU(),
+            torch.nn.MaxPool1d(kernel_size=3),
+            torch.nn.Conv1d(in_channels=8, out_channels=16, kernel_size=3),
+            torch.nn.ReLU(),
+            torch.nn.MaxPool1d(kernel_size=3),
+            torch.nn.Conv1d(in_channels=16, out_channels=32, kernel_size=3),
+            torch.nn.ReLU(),
+            torch.nn.MaxPool1d(kernel_size=3),
+            torch.nn.Conv1d(in_channels=32, out_channels=64, kernel_size=3),
+            torch.nn.ReLU(),
+            torch.nn.MaxPool1d(kernel_size=3),
+            torch.nn.Conv1d(in_channels=64, out_channels=128, kernel_size=3),
+            torch.nn.ReLU(),
+            torch.nn.MaxPool1d(kernel_size=3),
+            
+            
             Permute(),
-            torch.nn.GRU(input_size=768, hidden_size=gru_hidden, num_layers=gru_layers,
-                         batch_first=True, bidirectional=True, dropout=gru_dropout),
+            torch.nn.GRU(input_size=128, hidden_size=32, num_layers=1,
+                         batch_first=True, bidirectional=True, dropout=0.0),
             RNNPooling(),
-            torch.nn.Linear(gru_layers*(2*3*gru_hidden), 30),
+            torch.nn.Linear(1*(2*3*32), 30),
             torch.nn.ReLU(),
             torch.nn.Linear(30, 1),
 
         )
 
-        # Optional freezing
-        if (frozen_layers > 0):
-            print('FREEZING', frozen_layers, 'layers')
-            freeze_rodan(self, freeze_till=frozen_layers, verbose=0)
-
-        self.lr = lr
-        self.wd = wd
-        self.warmup_steps = warmup_steps
 
         self.acc = torchmetrics.classification.Accuracy(task="binary")
-        if(weighted_loss):
-            print('using weighted loss')
-            self.ce = torch.nn.BCEWithLogitsLoss(pos_weight=torch.tensor([0.2]).to(self.device))
-        else:
-            self.ce = torch.nn.BCEWithLogitsLoss()
+        self.ce = torch.nn.BCEWithLogitsLoss()
             
         self.training_step_counter = 0
         self.cumulative_loss = 0
         self.logging_steps = logging_steps
         self.cumulative_acc = 0
-            
 
 
     def forward(self, x):
-        feature_vector = self.trainable_rodan.convlayers(x)
-        out = self.head(feature_vector)
+        out = self.head(x)
         return out
 
     def configure_optimizers(self):
         optimizer = torch.optim.AdamW(
-            params=[
-                {'params': self.trainable_rodan.parameters()},
-                {'params': self.head.parameters()}
-            ], 
+            params=self.head.parameters(), 
             lr=self.lr, 
             weight_decay=self.wd
         )
@@ -199,29 +181,6 @@ class RodanPretrained(pl.LightningModule):
             self.log(f'{name} auroc MEAN', mean)
             self.log(f'{name} auroc MAX', maximum)
             
-        
-#         auroc_2022_mean = get_auroc_score(
-#             ['5eu_2022_chr1_pos', '5eu_2022_chr1_neg'], read_to_exp, read_to_preds_meanpool, read_to_label)
-#         auroc_2022_max = get_auroc_score(
-#             ['5eu_2022_chr1_pos', '5eu_2022_chr1_neg'], read_to_exp, read_to_preds_maxpool, read_to_label)
-#         self.log(f'valid 2022 auroc (meanpool)', auroc_2022_mean)
-#         self.log(f'valid 2022 auroc (maxpool)', auroc_2022_max)
-
-#         auroc_2020_mean = get_auroc_score(
-#             ['5eu_2020_pos', 'UNM_2020'], read_to_exp, read_to_preds_meanpool, read_to_label)
-#         auroc_2020_max = get_auroc_score(
-#             ['5eu_2020_pos', 'UNM_2020'], read_to_exp, read_to_preds_maxpool, read_to_label)
-#         self.log(f'valid 2020 auroc (meanpool)', auroc_2020_mean)
-#         self.log(f'valid 2020 auroc (maxpool)', auroc_2020_max)
-
-#         auroc_nanoid_mean = get_auroc_score(
-#             ['Nanoid_pos', 'Nanoid_neg'], read_to_exp, read_to_preds_meanpool, read_to_label)
-#         auroc_nanoid_max = get_auroc_score(
-#             ['Nanoid_pos', 'Nanoid_neg'], read_to_exp, read_to_preds_maxpool, read_to_label)
-#         self.log(f'valid nanoid auroc (meanpool)', auroc_nanoid_mean)
-#         self.log(f'valid nanoid auroc (maxpool)', auroc_nanoid_max)
-
-
 def get_auroc_score(exps, read_to_exp, read_to_preds, read_to_label):
     keys = [k for k, exp in read_to_exp.items() if exp in exps]
     filtered_labels = np.array([read_to_label[k] for k in keys])
@@ -234,28 +193,3 @@ def get_auroc_score(exps, read_to_exp, read_to_preds, read_to_label):
 
     return auroc
 
-
-def freeze_rodan(model, freeze_till, verbose=0):
-    # freeze_till max is 21
-    for name, module in model.named_modules():
-        if (name in ['', 'trainable_rodan', 'trainable_rodan.convlayers']):
-            continue
-        pattern = r"conv\d+"
-        match = re.search(pattern, name)
-        if (match):
-            conv_index = int(match.group(0)[4:])
-            if (conv_index > freeze_till):
-                # print('breaking')
-                break
-        if ('drop' in name):
-            # module.eval()
-            module.p = 0.0
-
-        for param in module.parameters():
-            param.requires_grad = False
-
-    if (verbose == 1):
-        for name, module in model.named_modules():
-            if (len(list(module.parameters())) > 0):
-                print(
-                    all([p.requires_grad for p in list(module.parameters())]), name)
