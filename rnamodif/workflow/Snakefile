@@ -11,4 +11,6 @@ include: "rules/training.smk"
 
 rule all:
     input:
-        expand('outputs/visual/predictions/rnakinet/max_ALL_DONE.txt'),
+        # expand('outputs/visual/predictions/rnakinet/max_ALL_DONE.txt'),
+        expand('checkpoints_pl/{training_experiment_name}/DONE.txt', training_experiment_name='test')
+        

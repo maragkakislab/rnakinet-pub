@@ -51,8 +51,8 @@ rule run_training:
             --sampler {params.sampler} \
             --lr {params.lr} \
             --warmup-steps {params.warmup_steps} \
-            --pos-weight {params.pos_weight} \
             --wd {params.wd} \
+            --pos-weight {params.pos_weight} \
             --arch {params.arch} \
             --arch-hyperparams-yaml {output.arch_hyperparams_yaml} \
             --grad-acc {params.grad_acc} \
@@ -69,4 +69,5 @@ rule run_training:
 
         touch {output.done_txt}
         """
+        
   
