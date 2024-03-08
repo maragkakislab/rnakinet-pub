@@ -27,7 +27,6 @@ class TrainingDatamodule(pl.LightningDataModule):
             skip,
             multiexp_generator_type,
             min_len,
-            preprocess='rodan',
     ):
 
         super().__init__()
@@ -55,7 +54,6 @@ class TrainingDatamodule(pl.LightningDataModule):
         self.skip = skip
         self.valid_auroc_tuples = valid_auroc_tuples
         self.min_len = min_len
-        self.preprocess=preprocess
         
         self.multiexp_generator_type = multiexp_generator_type
 
@@ -67,7 +65,6 @@ class TrainingDatamodule(pl.LightningDataModule):
                 max_len = self.max_len,
                 skip=self.skip,
                 min_len=self.min_len,
-                preprocess=self.preprocess,
                 multiexp_generator_type=self.multiexp_generator_type,
             )
             #TODO len limit/min_len ?
@@ -77,7 +74,6 @@ class TrainingDatamodule(pl.LightningDataModule):
                 valid_per_dset_read_limit=self.valid_per_dset_read_limit,
                 shuffle=self.shuffle_valid,
                 skip=self.skip,
-                preprocess=self.preprocess,
                 max_len=self.max_len,
                 min_len=self.min_len,
             )
@@ -94,13 +90,12 @@ class UnlimitedReadsTrainingDataset(IterableDataset):
     """
     Iterable Dataset that contains all reads
     """
-    def __init__(self, pos_files, neg_files, max_len, preprocess, skip, min_len, multiexp_generator_type):
+    def __init__(self, pos_files, neg_files, max_len, skip, min_len, multiexp_generator_type):
         self.positive_files = pos_files
         self.negative_files = neg_files
         self.max_len = max_len
         self.min_len = min_len
         self.skip = skip
-        self.preprocess = preprocess
         self.multiexp_generator_type = multiexp_generator_type
 
     def process_files(self, files, label, exp):
@@ -111,7 +106,7 @@ class UnlimitedReadsTrainingDataset(IterableDataset):
                 reads = list(f5.get_reads())
                 random.shuffle(reads)
                 for read in reads:
-                    x = process_read(read, window=None, skip=self.skip, preprocess=self.preprocess)
+                    x = process_read(read, skip=self.skip)
                     y = np.array(label)
                     # Skip if the read is too short
                     if (len(x) > self.max_len or len(x) < self.min_len):
@@ -160,19 +155,18 @@ class UnlimitedReadsInferenceDataset(IterableDataset):
     Iterable Dataset that contains all reads
     """
 
-    def __init__(self, files, max_len, skip, min_len, preprocess='rodan'):
+    def __init__(self, files, max_len, skip, min_len):
         self.files = files
         self.max_len = max_len
         self.skip = skip
         self.min_len = min_len
-        self.preprocess = preprocess
 
     def process_files_fully(self, files):
         for fast5 in files:
             try:
                 with get_fast5_file(fast5, mode='r') as f5:
                     for i, read in enumerate(f5.get_reads()):
-                        x = process_read(read, window=None, skip=self.skip, preprocess=self.preprocess)
+                        x = process_read(read, skip=self.skip)
                         start = 0
                         stop = len(x)
                         if(len(x) > self.max_len or len(x) < self.min_len):
@@ -196,11 +190,10 @@ class UnlimitedReadsInferenceDataset(IterableDataset):
     
     
 class UnlimitedReadsValidDataset(Dataset):
-    def __init__(self, valid_exp_to_files_pos, valid_exp_to_files_neg, valid_per_dset_read_limit, shuffle, preprocess, max_len, skip, min_len):
+    def __init__(self, valid_exp_to_files_pos, valid_exp_to_files_neg, valid_per_dset_read_limit, shuffle, max_len, skip, min_len):
         self.skip = skip
         self.min_len = min_len
         self.max_len = max_len
-        self.preprocess = preprocess
         
         pos_gens = []
         for exp, files in valid_exp_to_files_pos.items():
@@ -236,7 +229,7 @@ class UnlimitedReadsValidDataset(Dataset):
         for fast5 in files:
             with get_fast5_file(fast5, mode='r') as f5:
                 for i, read in enumerate(f5.get_reads()):
-                    x = process_read(read, window=None, skip=self.skip, preprocess=self.preprocess)
+                    x = process_read(read, skip=self.skip)
                     if(len(x) > self.max_len or len(x) < self.min_len):
                         print('skipping too long')
                         continue

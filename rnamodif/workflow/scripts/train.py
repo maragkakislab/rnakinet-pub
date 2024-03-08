@@ -101,7 +101,6 @@ def get_dataloading_config(args):
         'min_len':args.min_len,
         'skip':args.skip,
         'multiexp_generator_type':args.sampler,
-        'preprocess':'rodan',
     }
     return data_params
 
@@ -124,7 +123,7 @@ def get_model_config(args):
 def get_training_config(args):
     training_params = {
         'grad_accumulation':args.grad_acc,
-        'accelerator':'gpu',
+        'accelerator':'gpu', 
         "early_stopping_metric":"2022 may valid auroc",
         'early_stopping_patience':args.early_stopping_patience,
 
