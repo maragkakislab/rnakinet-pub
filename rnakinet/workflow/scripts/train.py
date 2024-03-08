@@ -1,12 +1,12 @@
 import comet_ml
-from rnamodif.data_utils.dataloading_uncut import TrainingDatamodule
+from rnakinet.data_utils.dataloading_uncut import TrainingDatamodule
 import pytorch_lightning as pl
 from pytorch_lightning.loggers import CometLogger
 from pytorch_lightning.callbacks import ModelCheckpoint
 from pytorch_lightning.callbacks.early_stopping import EarlyStopping
 from pathlib import Path
-from rnamodif.data_utils.data_paths import name_to_files #TODO refactor to not take magic strings in snakemake training
-from rnamodif.workflow.scripts.helpers import arch_map #TODO refactor model mapping from strings 
+from rnakinet.data_utils.data_paths import name_to_files #TODO refactor to not take magic strings in snakemake training
+from rnakinet.workflow.scripts.helpers import arch_map #TODO refactor model mapping from strings 
 import argparse
 import yaml
 

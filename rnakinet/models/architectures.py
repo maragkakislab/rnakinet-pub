@@ -3,7 +3,7 @@ from types import SimpleNamespace
 from rnamodif.models.generic import GenericUnlimited
 import torch
 # from rnamodif.models.modules import ConvNet, RNNEncoder, MLP, Attention, Permute, BigConvNet, ResConvNet
-from rnamodif.models.modules import SimpleCNN, Permute, RNNEncoder, MLP , Attention
+from rnakinet.models.modules import SimpleCNN, Permute, RNNEncoder, MLP , Attention
 import torch.nn as nn
 # from RODAN.basecall import load_model
 # from RODAN.model import Mish
