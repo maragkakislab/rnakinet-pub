@@ -6,9 +6,9 @@ from torch.utils.data import IterableDataset, Dataset
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
-from rnamodif.data_utils.generators import uniform_gen, ratio_gen
-from rnamodif.data_utils.read_utils import process_read
-from rnamodif.data_utils.workers import worker_init_fn
+from rnakinet.data_utils.generators import uniform_gen, ratio_gen
+from rnakinet.data_utils.read_utils import process_read
+from rnakinet.data_utils.workers import worker_init_fn
 
 
 class TrainingDatamodule(pl.LightningDataModule):
