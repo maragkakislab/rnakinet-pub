@@ -21,6 +21,7 @@ def main(args):
     plt.yticks(fontsize=fontsize-2)
     plt.xticks(fontsize=fontsize-2)
     
+    
     plt.legend(loc='lower right', fontsize=fontsize-2, frameon=False)
     
     sns.set_style('whitegrid')
@@ -61,7 +62,9 @@ def plot_read_limit(gene_predictions, gene_halflifes, column, tl, exp_name):
         
         corrs.append(corr)
         
+    plt.ylim(bottom=min(0, min(corrs)), top=max(corrs))
     plt.plot(limits[:len(corrs)], corrs, label=exp_name)
+    
         
 def add_predicted_halflifes(df, tl):
     col = 'percentage_modified'

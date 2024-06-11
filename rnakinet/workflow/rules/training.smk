@@ -6,18 +6,22 @@ rule run_training:
                                           experiment_name=training_configs[wildcards.training_experiment_name]['training_positives_exps']),
         train_negatives_lists=lambda wildcards: expand("outputs/splits/{experiment_name}/train_fast5s_list.txt",
                                           experiment_name=training_configs[wildcards.training_experiment_name]['training_negatives_exps']),
+        validation_positives_lists=lambda wildcards: expand("outputs/splits/{experiment_name}/validation_fast5s_list.txt",
+                                          experiment_name=training_configs[wildcards.training_experiment_name]['validation_positives_exps']),
+        validation_negatives_lists=lambda wildcards: expand("outputs/splits/{experiment_name}/validation_fast5s_list.txt",
+                                          experiment_name=training_configs[wildcards.training_experiment_name]['validation_negatives_exps']),
     output:
         done_txt = 'checkpoints_pl/{training_experiment_name}/DONE.txt',
         arch_hyperparams_yaml = 'checkpoints_pl/{training_experiment_name}/arch_hyperparams.yaml',
     params:
         min_len = lambda wildcards: training_configs[wildcards.training_experiment_name]['min_len'],
         max_len = lambda wildcards: training_configs[wildcards.training_experiment_name]['max_len'],
+        valid_read_limit = lambda wildcards: training_configs[wildcards.training_experiment_name]['valid_read_limit'],
         skip = lambda wildcards: training_configs[wildcards.training_experiment_name]['skip'],
         workers = lambda wildcards: training_configs[wildcards.training_experiment_name]['workers'],
         sampler = lambda wildcards: training_configs[wildcards.training_experiment_name]['sampler'],
         lr = lambda wildcards: training_configs[wildcards.training_experiment_name]['lr'],
         warmup_steps = lambda wildcards: training_configs[wildcards.training_experiment_name]['warmup_steps'],
-        pos_weight = lambda wildcards: training_configs[wildcards.training_experiment_name]['pos_weight'],
         wd = lambda wildcards: training_configs[wildcards.training_experiment_name]['wd'],
         arch = lambda wildcards: training_configs[wildcards.training_experiment_name]['arch'],
         arch_hyperparams = lambda wildcards: training_configs[wildcards.training_experiment_name]['arch_hyperparams'],
@@ -34,8 +38,8 @@ rule run_training:
         gpus=1,
     log:
         'checkpoints_pl/{training_experiment_name}/stdout.log'
-    # conda: #TODO fix this env
-        # '../envs/training.yaml'
+    conda:
+        '../envs/training.yaml'
     shell:
         """
         echo "{params.arch_hyperparams}" > {output.arch_hyperparams_yaml}
@@ -44,15 +48,17 @@ rule run_training:
         python3 scripts/train.py \
             --training-positives-lists {input.train_positives_lists} \
             --training-negatives-lists {input.train_negatives_lists} \
+            --validation-positives-lists {input.validation_positives_lists} \
+            --validation-negatives-lists {input.validation_negatives_lists} \
             --min-len {params.min_len} \
             --max-len {params.max_len} \
+            --valid-read-limit {params.valid_read_limit} \
             --skip {params.skip} \
             --workers {params.workers} \
             --sampler {params.sampler} \
             --lr {params.lr} \
             --warmup-steps {params.warmup_steps} \
             --wd {params.wd} \
-            --pos-weight {params.pos_weight} \
             --arch {params.arch} \
             --arch-hyperparams-yaml {output.arch_hyperparams_yaml} \
             --grad-acc {params.grad_acc} \
@@ -65,7 +71,11 @@ rule run_training:
             --save-path checkpoints_pl \
             "
 
-        $command &>{log}
+        if [ "{params.log_to_file}" = "True" ]; then
+            $command &>{log}
+        else
+            $command
+        fi
 
         touch {output.done_txt}
         """

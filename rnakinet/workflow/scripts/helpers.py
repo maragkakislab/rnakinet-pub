@@ -1,13 +1,8 @@
-# from rnamodif.models.model_uncut import RodanPretrainedUnlimited
-# from rnamodif.models.model_mine import MyModel
-from rnamodif.models.architectures import CNN_RNN
+from rnakinet.models.model import RNAkinet
 
 arch_map = {
-    # 'rodan':RodanPretrainedUnlimited, 
-    # 'cnn_gru':MyModel,
-    'cnn_rnn':CNN_RNN,
+    'rnakinet':RNAkinet,
 }
 
-print(arch_map)
 
 

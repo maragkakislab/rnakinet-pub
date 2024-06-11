@@ -1,12 +1,10 @@
 rule run_inference:
-    """
-    Slices each read into a window and predicts label for these windows
-    """
     input: 
         experiment_path = lambda wildcards: experiments_data[wildcards.experiment_name].get_path(),
         model_path = lambda wildcards: models_data[wildcards.model_name].get_path(),
-    output:
-        'outputs/{prediction_type}/{model_name}/{experiment_name}/windows.pickle' #TODO redo to csv or tsv
+    output: #pickle file for legacy visualization rules, TODO refactor visualizations into using csv
+        csv_path = 'outputs/{prediction_type}/{model_name}/{experiment_name}/max_pooling.csv',
+        pickle_path ='outputs/{prediction_type}/{model_name}/{experiment_name}/max_pooling.pickle',
     conda:
         "../envs/inference.yaml"
     params:
@@ -14,9 +12,7 @@ rule run_inference:
         max_len = lambda wildcards: models_data[wildcards.model_name].get_max_len(),
         min_len = lambda wildcards: models_data[wildcards.model_name].get_min_len(),
         skip = lambda wildcards: models_data[wildcards.model_name].get_skip(),
-        
         limit = lambda wildcards: '', #TODO refactor away
-        arch = lambda wildcards: models_data[wildcards.model_name].get_arch(),
     threads: 16 #TODO parametrize
     resources: gpus=1
     wildcard_constraints:
@@ -24,38 +20,16 @@ rule run_inference:
     shell:
         """
         python3 scripts/inference.py \
-            --arch {params.arch} \
             --path {input.experiment_path} \
             --checkpoint {input.model_path} \
-            --max_workers {threads} \
+            --max-workers {threads} \
             --batch-size {params.batch_size} \
             {params.limit} \
             --max-len {params.max_len} \
             --min-len {params.min_len} \
             --skip {params.skip} \
-            --output {output} \
-        """
-
-rule run_pooling:
-    input:
-        window_predictions = 'outputs/{prediction_type}/{model_name}/{experiment_name}/windows.pickle'
-    output:
-        out_pickle = 'outputs/{prediction_type}/{model_name}/{experiment_name}/{pooling}_pooling.pickle', #redo to csv or tsv
-        out_csv = 'outputs/{prediction_type}/{model_name}/{experiment_name}/{pooling}_pooling.csv'
-    conda:
-        "../envs/inference.yaml"
-    params:
-        pooling = lambda wildcards: wildcards.pooling, #TODO remove pooling options, no longer relevant
-        threshold = lambda wildcards: models_data[wildcards.model_name].get_threshold(),
-    threads: 1
-    shell:
-        """
-        python3 scripts/pooling.py \
-            --window_predictions {input.window_predictions} \
-            --out_pickle {output.out_pickle} \
-            --out_csv {output.out_csv} \
-            --pooling {params.pooling} \
-            --threshold {params.threshold} \
+            --csv_output {output.csv_path} \
+            --pickle_output {output.pickle_path} \
         """
 
 # run with snakemake --resources parallel_lock=1 to avoid paralelization and multiple runs utilizing the gpu, slowing the time

@@ -20,6 +20,22 @@ rule split_readids_on_chromosomes:
             --test_chromosomes {params.test_chromosomes} \
             --validation_chromosomes {params.validation_chromosomes} \
         """
+        
+rule split_readids_random:
+    input:
+        bam_path="outputs/alignment/{experiment_name}/reads-align.genome.sorted.bam",
+    output:
+        "outputs/splits/{experiment_name}/randtrain_readids.txt",
+        "outputs/splits/{experiment_name}/randtest_readids.txt",
+        "outputs/splits/{experiment_name}/randvalidation_readids.txt",
+    conda:
+        "../envs/bam_splitting.yaml"
+    shell:
+        """
+        python3 scripts/splitting_random.py \
+            --bam_path {input.bam_path} \
+            --output_path outputs/splits/{wildcards.experiment_name}/ \
+        """
 
 rule create_split_fast5s:
     '''

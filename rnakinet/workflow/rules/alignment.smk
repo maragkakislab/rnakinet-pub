@@ -9,8 +9,8 @@ rule align_to_genome:
         bai = "outputs/alignment/{experiment_name}/reads-align.genome.sorted.bam.bai"
     conda:
         "../envs/alignment.yaml"
-    threads: 32
-    shell:
+    threads: 16
+    shell: #-K 100M is setting the minibatch size from 500M to 100M due to memory issues
         """
 		minimap2 \
 			-x splice \
@@ -18,6 +18,7 @@ rule align_to_genome:
 			-t {threads} \
 			-u b \
 			-p 1 \
+            -K 100M \
 			--secondary=no \
 			{input.reference_path} \
 			{input.basecalls} \
@@ -36,7 +37,7 @@ rule align_to_transcriptome:
         bai = "outputs/alignment/{experiment_name}/reads-align.transcriptome.sorted.bam.bai",
     conda:
         "../envs/alignment.yaml"
-    threads: 32
+    threads: 16
 	shell:
 		"""
 		minimap2 \
@@ -45,6 +46,7 @@ rule align_to_transcriptome:
 			-t {threads} \
 			-u f \
 			-p 1 \
+            -K 100M \
 			--secondary=no \
 			{input.transcriptome_path} \
 			{input.basecalls} \
