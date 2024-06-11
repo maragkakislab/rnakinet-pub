@@ -1,0 +1,12 @@
+name: snakemake_env
+channels:
+  - conda-forge
+  - bioconda
+  - defaults
+dependencies:
+  - python=3.9
+  - snakemake
+  # - cudnn=8.9.2
+  
+# unset LD_LIBRARY_PATH
+
