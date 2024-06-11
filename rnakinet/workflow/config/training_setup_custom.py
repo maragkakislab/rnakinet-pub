@@ -7,19 +7,14 @@ human_genome = 'references/Homo_sapiens.GRCh38.dna_sm.primary_assembly.fa'
 experiments_data = {}
 
 r10_exps_negatives = [
-    "20240410_hsa_dRNA_HeLa_GFP_NoARS_1",
-    # "20240503_hsa_dRNA_HeLa_GFP_24h_NoARS_1",
-    # '20240410_hsa_dRNA_HeLa_GFP_NoARS_1',
-    # '20240214_hsa_dRNA_iN3_TDP43_WT_1',
+    "20240410_hsa_dRNA_HeLa__1",
 ]
 r10_exps_positives = [
-    # "20240510_hsa_dRNA_HeLa_5EU_R10_1",
-    # '20240502_mmu_dRNA_3T3_5EU_400_2_R10',
+    "20240510_hsa_dRNA_HeLa_5EU_1",
 ]
 for exp_name in r10_exps_negatives+r10_exps_positives:
     #Set paths to fast5 files for each experiment
-    root_dir=Path(f'local_store/arsenite/raw/{exp_name}/runs/no_sample')
-    fast5_pass_dir = [x for x in root_dir.glob("**/fast5_pass") if x.is_dir()][0]
+    fast5_pass_dir=Path(f'datastore/{exp_name}/fast5_pass')
     
     exp_data = ExperimentData(
         name=exp_name,
