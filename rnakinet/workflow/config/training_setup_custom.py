@@ -1,5 +1,6 @@
-from config.training_setup import ExperimentData
 from pathlib import Path
+from config.config_helpers import ExperimentData
+
 
 #Set your references
 human_genome = 'references/Homo_sapiens.GRCh38.dna_sm.primary_assembly.fa'
@@ -16,8 +17,10 @@ r10_exps_positives = [
     # '20240502_mmu_dRNA_3T3_5EU_400_2_R10',
 ]
 for exp_name in r10_exps_negatives+r10_exps_positives:
+    #Set paths to fast5 files for each experiment
     root_dir=Path(f'local_store/arsenite/raw/{exp_name}/runs/no_sample')
     fast5_pass_dir = [x for x in root_dir.glob("**/fast5_pass") if x.is_dir()][0]
+    
     exp_data = ExperimentData(
         name=exp_name,
         path=fast5_pass_dir,
@@ -53,8 +56,8 @@ training_configs  = {
         'comet_api_key':'y4EULBjxNd83yrzrwaLuxHtcr', #OPTIONAL: Set your comet API key for plotting training metrics
         'comet_project_name':'RNAkinet',
         'logging_step':500,
-        'enable_progress_bar':'no', #set to yes if you want to log training progress bar
-        'log_to_file':True, #set to False if you want to log to console, otherwise logged to checkpoints_pl folder
+        'enable_progress_bar':'yes', #set to yes if you want to log training progress bar
+        'log_to_file':False, #set to False if you want to log to console, otherwise logged to checkpoints_pl folder
         'valid_read_limit':5000,
     },
 }
