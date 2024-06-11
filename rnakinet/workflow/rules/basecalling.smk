@@ -16,11 +16,11 @@ rule get_basecaller:
 rule get_dorado:
     output: dorado_location
     shell:
-        f"""
+        """
         wget https://cdn.oxfordnanoportal.com/software/analysis/dorado-0.5.3-linux-x64.tar.gz
         tar -xf dorado-0.5.3-linux-x64.tar.gz
+        {output} download --model rna004_130bps_hac@v3.0.1
         """
-
 
         
 # Basecalls fast5 files into fastq files
