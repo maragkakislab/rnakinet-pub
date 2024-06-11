@@ -21,6 +21,7 @@ def run(args):
         raise Exception('No fast5 files found')
         
     model = RNAkinet()
+    
     model.load_state_dict(torch.load(args.checkpoint, map_location='cpu')['state_dict'])
     model.eval()
     
@@ -55,11 +56,14 @@ def run(args):
                 assert len(probab) == 1
                 id_to_pred[readid] = probab[0]
                 
-    with open(args.output, 'wb') as handle:
+    with open(args.csv_output, 'wb') as handle:
         df = pd.DataFrame.from_dict(id_to_pred, orient='index').reset_index()
         df.columns = ['read_id', '5eu_mod_score']
         df['5eu_modified_prediction'] = df['5eu_mod_score'] > args.threshold
         df.to_csv(handle, index=False)
+      
+    with open(args.pickle_output, 'wb') as handle:
+        pickle.dump(id_to_pred, handle, protocol=pickle.HIGHEST_PROTOCOL)
         
 def main():
     base_dir = os.path.dirname(os.path.dirname(__file__))
@@ -68,7 +72,8 @@ def main():
     parser = argparse.ArgumentParser(description='Run prediction on FAST5 files')
     parser.add_argument('--path', type=str, required=True, help='Path to the folder containing FAST5 files.')
     parser.add_argument('--checkpoint', type=str, default=default_checkpoint, help='Path to the model checkpoint file.')
-    parser.add_argument('--output', type=str, required=True, help='Path to the output csv file for pooled predictions.')
+    parser.add_argument('--csv_output', type=str, required=True, help='Path to the output csv file for pooled predictions.')
+    parser.add_argument('--pickle_output', type=str, required=True, help='Path to the output pickle file for pooled predictions.')
     parser.add_argument('--max-workers', type=int, default=16, help='Maximum number of workers for data loading')
     parser.add_argument('--batch-size', type=int, default=1, help='Batch size for data loading')
     parser.add_argument('--max-len', type=int, default=400000, help='Maximum length of the signal sequence to process')
@@ -77,7 +82,6 @@ def main():
     parser.add_argument('--threshold', type=float, default=0.5, help='Threshold for the predictions to be considered positives')
     parser.add_argument('--use-cpu', action='store_true', help='Use CPU for computation instead of GPU')
 
-    
     args = parser.parse_args(sys.argv[1:])
     run(args)
 

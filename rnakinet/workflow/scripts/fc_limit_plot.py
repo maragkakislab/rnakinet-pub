@@ -5,6 +5,7 @@ from matplotlib import pyplot as plt
 import seaborn as sns
 from plot_helpers import setup_palette
 from correlation_plot import correlation_plot
+from scipy.stats import spearmanr, pearsonr
 
 def calc_fc(df, col, conditions_count, controls_count):
     df['ctrl_avg'] = df[[f'{col}_ctrl_{i}' for i in range(controls_count)]].mean(axis=1)
@@ -20,7 +21,6 @@ def main(args):
     deseq_path = args.deseq_output
     pred_col = args.pred_col
     target_col = args.target_col
-    min_reads = args.min_reads
     
     deseq_df = pd.read_csv(deseq_path, sep='\t', index_col=None).reset_index()
     deseq_df = deseq_df[~deseq_df['log2FoldChange'].isna()] #Dropping genes that dont contain fold change data
@@ -28,8 +28,6 @@ def main(args):
     cond_dfs = [pd.read_csv(path, sep='\t', index_col=0) for path in cond_paths]
     ctrl_dfs = [pd.read_csv(path, sep='\t', index_col=0) for path in ctrl_paths]
     
-    cond_dfs = [df[df['reads']>=min_reads] for df in cond_dfs]
-    ctrl_dfs = [df[df['reads']>=min_reads] for df in ctrl_dfs]
     
     for i,cond_df in enumerate(cond_dfs):
         cond_df.columns = [f'{col}_cond_{i}' if col != 'Gene stable ID' else col for col in cond_df.columns]
@@ -56,9 +54,58 @@ def main(args):
     joined_df = joined_df[~joined_df['Pred_log2FoldChange'].isna()]
     joined_df['FC'] = 2**joined_df['log2FoldChange']
     
-    print(joined_df.columns)
-    print('POST', len(joined_df))
-    correlation_plot(joined_df, x_column='log2FoldChange',y_column='Relative modification increase (%)', x_label='Expression fold change (log2)\nHeat shock vs control', y_label='Relative modification increase (%)', output=args.output, share_axes=False)
+    
+    spearman_corrs = []
+    pearson_corrs = []
+    
+    og_cond_dfs = [pd.read_csv(path, sep='\t', index_col=0) for path in cond_paths]
+    og_ctrl_dfs = [pd.read_csv(path, sep='\t', index_col=0) for path in ctrl_paths]
+    cond_max = [df['reads'].max() for df in og_cond_dfs]
+    ctrl_max = [df['reads'].max() for df in og_ctrl_dfs]
+    all_max = max(cond_max+ctrl_max)
+    limits = range(0, all_max)
+    
+    min_reads_to_plot = 30 
+    for min_reads in limits:
+        sub_joined_df = joined_df
+        for i in range(len(cond_dfs)):
+            sub_joined_df = sub_joined_df[sub_joined_df[f'reads_cond_{i}'] >= min_reads]
+        for i in range(len(ctrl_dfs)):
+            sub_joined_df = sub_joined_df[sub_joined_df[f'reads_ctrl_{i}'] >= min_reads]
+    
+        if(len(sub_joined_df) < min_reads_to_plot):
+            break
+            
+        x = sub_joined_df['log2FoldChange'].values
+        y = sub_joined_df['Relative modification increase (%)'].values
+        spearman = spearmanr(x,y).statistic
+        pearson = pearsonr(x,y).statistic
+        
+        spearman_corrs.append(spearman)
+        pearson_corrs.append(pearson)
+        
+    fontsize=8
+    
+    palette = setup_palette()
+    plt.figure(figsize=(1.5,1.5))
+    
+    plt.xlabel('Minimum read requirement', fontsize=fontsize)
+    plt.ylabel('Correlation of expression fold change (log2)\n and relative modification increase (%)', fontsize=fontsize)
+    
+    plt.plot(limits[:len(spearman_corrs)], spearman_corrs, label='spearman', color=palette[0])
+    plt.plot(limits[:len(pearson_corrs)], pearson_corrs, label='pearson', color=palette[1])
+    
+    plt.xticks(fontsize=fontsize-2)
+    plt.yticks(fontsize=fontsize-2)
+    
+    plt.legend(loc='lower right', fontsize=fontsize-2, frameon=False)
+    
+    sns.set_style('whitegrid')
+    sns.despine()
+    
+    plt.savefig(args.output, bbox_inches = 'tight')
+    
+    # correlation_plot(joined_df, x_column='log2FoldChange',y_column='Relative modification increase (%)', x_label='Expression fold change (log2)\nHeat shock vs control', y_label='Relative modification increase (%)', output=args.output)
     
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Make FC correlation plot from differential expression analysis data and predictions.")
@@ -67,7 +114,6 @@ if __name__ == "__main__":
     parser.add_argument("--deseq-output", type=str)
     parser.add_argument("--pred-col", type=str)
     parser.add_argument("--target-col", type=str)
-    parser.add_argument("--min-reads", type=int)
     
     parser.add_argument("--output", help="filename to save the plot")
     

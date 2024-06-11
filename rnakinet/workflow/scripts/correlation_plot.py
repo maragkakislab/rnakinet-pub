@@ -9,9 +9,9 @@ from scipy.stats import spearmanr, pearsonr
 
 def main(args):
     table = pd.read_csv(args.table, sep='\t')
-    correlation_plot(table, x_column=args.x_column,y_column=args.y_column, x_label=args.x_label,y_label=args.y_label, output=args.output)
+    correlation_plot(table, x_column=args.x_column,y_column=args.y_column, x_label=args.x_label,y_label=args.y_label, output=args.output, share_axes=args.share_axes)
 
-def correlation_plot(df, x_column, y_column, x_label, y_label, output):
+def correlation_plot(df, x_column, y_column, x_label, y_label, output, share_axes):
     plt.figure(figsize=(1.5,1.5))
     palette = setup_palette()
     sns.regplot(data=df, x=x_column, y=y_column, 
@@ -22,7 +22,7 @@ def correlation_plot(df, x_column, y_column, x_label, y_label, output):
     x = df[x_column].values
     y = df[y_column].values
     
-    if args.share_axes:
+    if share_axes:
         max_range = max((x.max()-x.min()),y.max()-y.min())
         padding = max_range*0.05
         common_range = [

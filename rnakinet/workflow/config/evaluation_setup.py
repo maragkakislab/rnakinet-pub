@@ -24,6 +24,7 @@ class ModelInferenceInfo():
         return self.threshold
 
 models_data = {}
+#TODO fix old arch naming
 model_name_to_args = {
     'rnakinet':{
         'path':'../checkpoints_pl/2022_mine_allneg/last-Copy5.ckpt',
@@ -34,6 +35,11 @@ model_name_to_args = {
         'path':'checkpoints_pl/2022_uncut_allneg/last-Copy1_8624step.ckpt',
         'threshold': 0.75,
         'arch': 'rodan',
+    },
+    'rnakinet_postreview_randsplit':{
+        'path':'checkpoints_pl/rnakinet_postreview_randsplit/best-step=24000-valid_loss=0.83.ckpt',
+        'threshold':0.5,
+        'arch':'cnn_gru',
     },
 }
 
@@ -122,6 +128,12 @@ exp_groups = {
         '20201022_hsa_dRNA_Neuron_ctrl_5P_1',
         '20201022_hsa_dRNA_Neuron_TDP_5P_1',
     ],
+    # 'test_2020_nia_positives':[
+    #    '20201016_hsa_dRNASeq_HeLa_5EU_polyA_REL5_short_1_TEST',
+    # ],
+    # 'test_2020_nia_negatives':[
+    #    '20201016_hsa_dRNASeq_HeLa_dmso_polyA_REL5_short_1_TEST',
+    # ],
 }
 
 pos_neg_pairs = {
@@ -141,6 +153,10 @@ pos_neg_pairs = {
         'positives':exp_groups['test_2022_nia_positives'],
         'negatives':exp_groups['test_2022_nia_negatives'],
     },
+    # 'TEST_2020_NIA':{
+    #     'positives':exp_groups['test_2020_nia_positives'],
+    #     'negatives':exp_groups['test_2020_nia_negatives'],
+    # },
 }
 
 condition_control_pairs = {
@@ -153,6 +169,7 @@ condition_control_pairs = {
 comparison_groups = {
     'ALL':['ALL_2022_NIA','ALL_NANOID'],
     'TEST':['TEST_2022_NIA','TEST_NANOID'],
+    # 'TEST':['TEST_2022_NIA','TEST_NANOID', 'TEST_2020_NIA'],
 }
 
 model_comparison_groups = {

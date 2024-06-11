@@ -47,7 +47,7 @@ def main(args):
     if(args.plot_type == 'Uperc'):
         attribute_auroc_plot(pos_readid_to_info, neg_readid_to_info, pos_predictions, neg_predictions, args, key='percent_U', thresholds=[0,20,30,100])
     if(args.plot_type == 'length'):
-        attribute_auroc_plot(pos_readid_to_info, neg_readid_to_info, pos_predictions, neg_predictions, args, key='read_length', thresholds=[0,1000,3000,5000,1000000])
+        attribute_auroc_plot(pos_readid_to_info, neg_readid_to_info, pos_predictions, neg_predictions, args, key='read_length', thresholds=[0, 1000,3000,5000,1000000])
         
 def attribute_auroc_plot(pos_readid_to_info, neg_readid_to_info, pos_preds, neg_preds, args, key, thresholds):
     output_file = args.output
@@ -60,24 +60,32 @@ def attribute_auroc_plot(pos_readid_to_info, neg_readid_to_info, pos_preds, neg_
         pos_preds_threshold = []
         neg_preds_threshold = []
         for read_id, info in pos_readid_to_info.items():
-            if(info[key] >= thresholds[i] and info[key] < thresholds[i+1]):
+            # if(info[key] >= thresholds[i] and info[key] < thresholds[i+1]):
+            if(info[key] >= thresholds[i]):# and info[key] < thresholds[i+1]):
                 pos_preds_threshold.append(pos_preds[read_id])
         for read_id, info in neg_readid_to_info.items():
-            if(info[key] >= thresholds[i] and info[key] < thresholds[i+1]):
+            # if(info[key] >= thresholds[i] and info[key] < thresholds[i+1]):
+            if(info[key] >= thresholds[i]):# and info[key] < thresholds[i+1]):
                 neg_preds_threshold.append(neg_preds[read_id])
         
         pos_labels = np.repeat(1, len(pos_preds_threshold)).tolist()
         neg_labels = np.repeat(0, len(neg_preds_threshold)).tolist()
-                
+        
         preds = pos_preds_threshold+neg_preds_threshold
         labels = pos_labels+neg_labels
+        
+        #INVERTING POS AND NEGS TO INSPECT THEM TEMPORARILY
+        # preds = [1-pred for pred in preds]
+        # labels = [1-label for label in labels]
         
         if(len(labels)<=0):
             continue
     
         fpr, tpr, _ = metrics.roc_curve(labels, preds)
         auroc = metrics.auc(fpr, tpr)   
-        plt.plot(fpr,tpr, linewidth=1, color=palette[i], label=f'{thresholds[i]} <= {key}  < {thresholds[i+1]} (AUROC {auroc:.2f})')
+        # plt.plot(fpr,tpr, linewidth=1, color=palette[i%len(palette)], label=f'{thresholds[i]} <= {key}  < {thresholds[i+1]} (AUROC {auroc:.2f}) Pos count:{len(pos_labels)}, Neg count:{len(neg_labels)}')
+        plt.plot(fpr,tpr, linewidth=1, color=palette[i%len(palette)], label=f'{thresholds[i]} <= {key} (AUROC {auroc:.2f}) Pos count:{len(pos_labels)}, Neg count:{len(neg_labels)}')
+        
                                                
                                                
     plt.plot([0, 1], [0, 1], color='black', linestyle='--')
@@ -87,7 +95,7 @@ def attribute_auroc_plot(pos_readid_to_info, neg_readid_to_info, pos_preds, neg_
     plt.yticks(fontsize=fontsize-2)
     sns.set_style('whitegrid')
     sns.despine()
-    plt.legend(loc='lower right', fontsize=fontsize-2, frameon=False)
+    plt.legend(loc='upper center', bbox_to_anchor=(0.5, -0.1), fontsize=fontsize-2, frameon=False)
     plt.savefig(output_file, bbox_inches='tight')
                                                
     

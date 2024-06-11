@@ -547,6 +547,38 @@ rule create_fc_plot:
         "../envs/visual.yaml"
     params:
         target_col = 'log2FoldChange',
+    shell:
+        """
+        python3 scripts/fc_limit_plot.py \
+            --gene-level-preds-control {input.gene_level_preds_control} \
+            --gene-level-preds-condition {input.gene_level_preds_condition} \
+            --deseq-output {input.deseq_output} \
+            --pred-col {wildcards.pred_col} \
+            --target-col {params.target_col} \
+            --output {output} \
+        """
+        
+rule create_fc_plot_old:
+    input:
+        gene_level_preds_control=lambda wildcards: expand(
+            "outputs/predictions/{model_name}/{experiment_name}/{pooling}_pooling_gene_level_predictions.tsv", 
+            experiment_name=condition_control_pairs[wildcards.time_group]['controls'],
+            model_name=wildcards.model_name,
+            pooling=wildcards.pooling,
+        ),
+        gene_level_preds_condition=lambda wildcards: expand(
+            "outputs/predictions/{model_name}/{experiment_name}/{pooling}_pooling_gene_level_predictions.tsv", 
+            experiment_name=condition_control_pairs[wildcards.time_group]['conditions'],
+            model_name=wildcards.model_name,
+            pooling=wildcards.pooling,
+        ),
+        deseq_output = 'outputs/diff_exp/{time_group}/DESeq_output.tab',
+    output:
+        "outputs/visual/predictions/{model_name}/{time_group}/{pooling}_pooling_fcold_{pred_col}.pdf"
+    conda:
+        "../envs/visual.yaml"
+    params:
+        target_col = 'log2FoldChange',
         min_reads = 100,
     shell:
         """
@@ -641,13 +673,13 @@ rule create_all_plots:
             halflives_name=[key for experiment_name in exp_groups['mouse_decay_exps'] for key in experiments_data[experiment_name].get_halflives_name_to_file().keys()],
             normalization=['unnormalized','standardized','robust','quantile','minmax'],
         ),
-        lambda wildcards: expand('outputs/visual/predictions/{model_name}/{experiment_name}/{pooling}_pooling_{reference_level}_{plot_type}.pdf',
-            model_name = wildcards.model_name, 
-            pooling=pooling,
-            experiment_name=exp_groups['hela_decay_exps'],
-            plot_type=['decay_plot'],
-            reference_level=['transcript'],
-        ),
+        # lambda wildcards: expand('outputs/visual/predictions/{model_name}/{experiment_name}/{pooling}_pooling_{reference_level}_{plot_type}.pdf',
+        #     model_name = wildcards.model_name, 
+        #     pooling=pooling,
+        #     experiment_name=exp_groups['hela_decay_exps'],
+        #     plot_type=['decay_plot'],
+        #     reference_level=['transcript'],
+        # ),
         lambda wildcards: expand('outputs/visual/predictions/{model_name}/decay/{halflives_name}_halflives_{group_name}_{pooling}_pooling_{reference_level}_{plot_type}.pdf',
             model_name = wildcards.model_name, 
             pooling=pooling,

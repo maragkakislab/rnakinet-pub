@@ -25,13 +25,14 @@ class RNNPooling(torch.nn.Module):
         return concat
 
 
-class MyModel(pl.LightningModule):
+class RNAkinet(pl.LightningModule):
     def __init__(
             self,
             lr=1e-3,
             warmup_steps=1000,
             wd=0.01,
-            logging_steps=1):
+            logging_steps=1,
+    ):
 
         super().__init__()
         self.lr = lr
@@ -66,9 +67,8 @@ class MyModel(pl.LightningModule):
 
         )
 
-
         self.acc = torchmetrics.classification.Accuracy(task="binary")
-        self.ce = torch.nn.BCEWithLogitsLoss()
+        self.ce = torch.nn.BCELoss()
             
         self.training_step_counter = 0
         self.cumulative_loss = 0
@@ -78,6 +78,7 @@ class MyModel(pl.LightningModule):
 
     def forward(self, x):
         out = self.head(x)
+        out = torch.sigmoid(out)
         return out
 
     def configure_optimizers(self):
@@ -93,15 +94,15 @@ class MyModel(pl.LightningModule):
         return [optimizer], [scheduler]
 
     def training_step(self, train_batch, batch_idx, dataloader_idx=None):
-        x, y, exp = train_batch
-        loss, preds = self.compute_loss(x, y, exp, 'train', return_preds=True)
+        x, y, _ = train_batch #exp info not used
+        loss, preds = self.compute_loss(x, y, 'train', return_preds=True)
         self.log('train_loss', loss, on_epoch=True)
         sch = self.lr_schedulers()
         sch.step()
             
         self.training_step_counter += 1
         self.cumulative_loss += loss.item()
-        self.cumulative_acc +=self.acc(torch.sigmoid(preds), y)
+        self.cumulative_acc +=self.acc(preds, y)
 
         if self.training_step_counter % self.logging_steps == 0:
             avg_loss = self.cumulative_loss / self.logging_steps
@@ -115,81 +116,25 @@ class MyModel(pl.LightningModule):
         return loss
 
     def validation_step(self, val_batch, batch_idx, dataloader_idx=None):
-        x, y, identifier = val_batch
-        exp = identifier['exp']
-        loss, preds = self.compute_loss(x, y, exp, 'valid', return_preds=True)
+        x, y = val_batch
+        loss, preds = self.compute_loss(x, y, 'valid', return_preds=True)
         self.log('valid_loss', loss, on_epoch=True)
-        return {'preds': preds, 'identifier': identifier}
 
     def predict_step(self, batch, batch_idx):
         xs, ids = batch
-        logits = self.forward(xs)
-        res = torch.sigmoid(logits)
+        res = self.forward(xs)
         return res, ids
 
-    def compute_loss(self, x, y, exp, loss_type, return_preds=False):
-        seq_predictions_logits = self(x)
-        mod_loss = self.ce(seq_predictions_logits, y)
+    def compute_loss(self, x, y, loss_type, return_preds=False):
+        is_predicted_modified = self(x)
+        mod_loss = self.ce(is_predicted_modified, y)
 
-        is_predicted_modified = torch.sigmoid(seq_predictions_logits)
         acc = self.acc(is_predicted_modified, y)
         # log overall accuracy
         self.log(f'{loss_type} acc', acc, on_epoch=True)
-
-        # log accuracy for all unique experiments in the batch separately
-        exps = np.array(exp)
-        for e in np.unique(exp):
-            indicies = exps == e
-            batch_size = sum(indicies)
-            if (batch_size > 0):
-                self.log(f'{loss_type} {e} acc', self.acc(
-                    is_predicted_modified[exps == e], y[exps == e]), on_epoch=True)
 
         if (return_preds):
             return mod_loss, is_predicted_modified
         return mod_loss
 
-    def validation_epoch_end(self, outputs):
-        # Aggregate all validation predictions into auroc metrics
-        read_to_preds = {}
-        read_to_label = {}
-        read_to_exp = {}
-        for log in outputs:
-            preds = log['preds'].cpu().numpy()
-            ids = log['identifier']
-
-            # TODO Detaching slow?
-            for i, (readid, pred, label, exp) in enumerate(zip(ids['readid'], preds, ids['label'].detach().cpu(), ids['exp'])):
-                if (readid not in read_to_preds.keys()):
-                    read_to_preds[readid] = []
-                    read_to_label[readid] = label
-                    read_to_exp[readid] = exp
-                read_to_preds[readid].append(pred)
-
-        read_to_preds_meanpool = {}
-        read_to_preds_maxpool = {}
-        for k, v in read_to_preds.items():
-            read_to_preds_meanpool[k] = np.array(v).mean()
-            read_to_preds_maxpool[k] = np.array(v).max()
-        
-        for tup in self.trainer.datamodule.valid_auroc_tuples:
-            pos = tup[0]
-            neg = tup[1]
-            name = tup[2]
-            mean = get_auroc_score([pos,neg], read_to_exp, read_to_preds_meanpool, read_to_label)
-            maximum = get_auroc_score([pos,neg], read_to_exp, read_to_preds_maxpool, read_to_label)
-            self.log(f'{name} auroc MEAN', mean)
-            self.log(f'{name} auroc MAX', maximum)
-            
-def get_auroc_score(exps, read_to_exp, read_to_preds, read_to_label):
-    keys = [k for k, exp in read_to_exp.items() if exp in exps]
-    filtered_labels = np.array([read_to_label[k] for k in keys])
-    filtered_preds = np.array([read_to_preds[k] for k in keys])
-    try:
-        auroc = roc_auc_score(filtered_labels, filtered_preds)
-    except ValueError as error:
-        print(error)
-        auroc = -0.01
-
-    return auroc
 

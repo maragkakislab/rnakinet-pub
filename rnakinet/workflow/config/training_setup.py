@@ -76,6 +76,8 @@ class ExperimentData:
         return list(self.get_path().rglob('*.fast5'))
     def get_train_fast5_files(self):
         return list((self.splits_path/'train').rglob('*.fast5'))
+    def get_randomsplit_train_fast5_files(self):
+        return list((self.splits_path/'randtrain').rglob('*fast5'))
     def get_test_fast5_files(self):
         return list((self.splits_path/'test').rglob('*.fast5'))
     def get_valid_fast5_files(self):
@@ -86,6 +88,7 @@ class ExperimentData:
             'train':self.get_train_fast5_files,
             'test':self.get_test_fast5_files,
             'validation':self.get_valid_fast5_files,
+            'randtrain':self.get_randomsplit_train_fast5_files,
         }
         return getters[split]()
     def get_halflives_name_to_file(self):
@@ -329,24 +332,74 @@ experiments_data['ALL_NoArs60'] = ExperimentData(
     time=2.0,
     halflives_name_to_file={'DRB':'halflives_data/experiments/hl_drb_renamed.tsv'}, #tani halflives
 )
- 
 
-default_train_positives = [
+r10_exps_human = [
+    "20240410_hsa_dRNA_HeLa_GFP_NoARS_1",
+    "20240503_hsa_dRNA_HeLa_GFP_24h_NoARS_1",
+    "20240510_hsa_dRNA_HeLa_5EU_R10_1",
+    '20240410_hsa_dRNA_HeLa_GFP_NoARS_1',
+    '20240214_hsa_dRNA_iN3_TDP43_WT_1',
+    '20240510_hsa_dRNA_HeLa_5EU_R10_1',
+]
+#TODO basecalls - should be all? Or just pass files (all_reads VS reads)
+for exp_name in r10_exps_human:
+    root_dir=Path(f'local_store/arsenite/raw/{exp_name}/runs/no_sample')
+    fast5_pass_dirs = [x for x in root_dir.glob("**/fast5_pass") if x.is_dir()]
+    assert len(fast5_pass_dirs) == 1, len(fast5_pass_dirs)
+    exp_data = ExperimentData(
+        name=exp_name,
+        path=fast5_pass_dirs[0],
+        kit='SQK-RNA004',
+        flowcell='FLO-PRO004RA',
+        genome=human_genome, 
+        transcriptome=human_transcriptome, 
+        train_chrs=[2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,21,22,'X','MT'],
+        test_chrs=[1],
+        valid_chrs=[20],
+        gene_transcript_table=human_gene_transcript_table, 
+        basecalls_path = f'outputs/basecalling/{exp_name}/dorado/all_reads.fastq.gz', #TODO generalize for all dorado-basecalled experiments
+    )
+    experiments_data[exp_name] = exp_data
+    
+    
+r10_exps_mouse = [
+    "20240502_mmu_dRNA_3T3_5EU_400_2_R10",
+]
+for exp_name in r10_exps_mouse:
+    root_dir=Path(f'local_store/arsenite/raw/{exp_name}/runs/no_sample')
+    fast5_pass_dirs = [x for x in root_dir.glob("**/fast5_pass") if x.is_dir()]
+    assert len(fast5_pass_dirs) == 1, len(fast5_pass_dirs)
+    exp_data = ExperimentData(
+        name=exp_name,
+        path=fast5_pass_dirs[0],
+        kit='SQK-RNA004',
+        flowcell='FLO-PRO004RA',
+        genome=mouse_genome, 
+        transcriptome=mouse_transcriptome, 
+        gene_transcript_table=mouse_gene_transcript_table, 
+        basecalls_path = f'outputs/basecalling/{exp_name}/dorado/all_reads.fastq.gz', #TODO generalize for all dorado-basecalled experiments
+    )
+    experiments_data[exp_name] = exp_data
+
+
+default_positives = [
     '20220303_hsa_dRNA_HeLa_5EU_polyA_REL5_2'
 ]
-default_train_negatives = [
+default_negatives = [
     '20220520_hsa_dRNA_HeLa_DMSO_1',
     '20201001_hsa_dRNA_Hek293T_NoArs_5P_1',
     '20201022_hsa_dRNA_Neuron_ctrl_5P_1',
     '20201022_hsa_dRNA_Neuron_TDP_5P_1',
 ]
 
-api_key = "YOUR_COMET_API_KEY"
+api_key = "y4EULBjxNd83yrzrwaLuxHtcr"
 
 training_configs  = {
     'rnakinet': {
-        'training_positives_exps': default_train_positives,
-        'training_negatives_exps': default_train_negatives,
+        'training_positives_exps': default_positives,
+        'training_negatives_exps': default_negatives,
+        'validation_positives_exps': default_positives,
+        'validation_negatives_exps': default_negatives,
         'min_len':5000,
         'max_len':400000,
         'skip':5000,
@@ -354,9 +407,8 @@ training_configs  = {
         'sampler':'ratio',
         'lr':1e-3,
         'warmup_steps':100,
-        'pos_weight':1.0,
         'wd':0.01,
-        'arch':'cnn_gru',
+        'arch':'rnakinet',
         'arch_hyperparams':{
             'cnn_depth':5,
             'mlp_hidden_size':10,
@@ -369,9 +421,11 @@ training_configs  = {
         'enable_progress_bar':'no',
         'log_to_file':True,
     },
-    'rnakinet_tl': {
-        'training_positives_exps': default_train_positives,
-        'training_negatives_exps': default_train_negatives,
+    'deploy_test': {
+        'training_positives_exps': default_positives,
+        'training_negatives_exps': default_negatives,
+        'validation_positives_exps': default_positives,
+        'validation_negatives_exps': default_negatives,
         'min_len':5000,
         'max_len':400000,
         'skip':5000,
@@ -379,9 +433,8 @@ training_configs  = {
         'sampler':'ratio',
         'lr':1e-3,
         'warmup_steps':100,
-        'pos_weight':1.0,
         'wd':0.01,
-        'arch':'rodan',
+        'arch':'rnakinet',
         'arch_hyperparams':{},
         'grad_acc':64,
         'early_stopping_patience':50, 
@@ -390,30 +443,6 @@ training_configs  = {
         'logging_step':500,
         'enable_progress_bar':'no',
         'log_to_file':True,
-    },
-    'test': {
-        'training_positives_exps': default_train_positives,
-        'training_negatives_exps': default_train_negatives,
-        'min_len':5000,
-        'max_len':400000,
-        'skip':5000,
-        'workers':32,
-        'sampler':'ratio',
-        'lr':1e-3,
-        'warmup_steps':100,
-        'pos_weight':1.0,
-        'wd':0.01,
-        'arch':'cnn_rnn',
-        'arch_hyperparams':{
-            'cnn_depth':5,
-            'mlp_hidden_size':10,
-        },
-        'grad_acc':64,
-        'early_stopping_patience':50,
-        'comet_api_key':api_key,
-        'comet_project_name':'RNAkinet',
-        'logging_step':500,
-        'enable_progress_bar':'yes',
-        'log_to_file':True,
+        'valid_read_limit':5000,
     },
 }

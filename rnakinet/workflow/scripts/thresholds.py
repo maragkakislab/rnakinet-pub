@@ -23,6 +23,7 @@ def plot_thresholds(pos_preds, neg_preds, pos_name, neg_name):
     sns.despine()
     plt.legend(loc='lower right', frameon=False, fontsize=fontsize-2)
     
+    
 def get_threshold_callback(args):
     def threshold_line_callback():
         palette = setup_palette()

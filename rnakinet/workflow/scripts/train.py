@@ -1,14 +1,17 @@
+import torch
+print('CUDA', torch.cuda.is_available())
+
 import comet_ml
-from rnakinet.data_utils.dataloading_uncut import TrainingDatamodule
+from rnakinet.data_utils.dataloading import TrainingDatamodule
 import pytorch_lightning as pl
 from pytorch_lightning.loggers import CometLogger
 from pytorch_lightning.callbacks import ModelCheckpoint
 from pytorch_lightning.callbacks.early_stopping import EarlyStopping
 from pathlib import Path
-from rnakinet.data_utils.data_paths import name_to_files #TODO refactor to not take magic strings in snakemake training
 from rnakinet.workflow.scripts.helpers import arch_map #TODO refactor model mapping from strings 
 import argparse
 import yaml
+
 
 def parse_args(parser):
     parser.add_argument(
@@ -16,24 +19,38 @@ def parse_args(parser):
         type=str, 
         required=True, 
         nargs='+', 
-        help='Paths to the files containing positive fast5 files'
+        help='Paths to the files containing training positive fast5 files'
     )
     parser.add_argument(
         '--training-negatives-lists', 
         type=str, 
         required=True, 
         nargs='+', 
-        help='Paths to the files containing negative fast5 files.'
+        help='Paths to the files containing training negative fast5 files.'
+    )
+    parser.add_argument(
+        '--validation-positives-lists', 
+        type=str, 
+        required=True, 
+        nargs='+', 
+        help='Paths to the files containing validation positive fast5 files'
+    )
+    parser.add_argument(
+        '--validation-negatives-lists', 
+        type=str, 
+        required=True, 
+        nargs='+', 
+        help='Paths to the files containing validation negative fast5 files.'
     )
 
     parser.add_argument('--min-len', type=int, required=True, help='Minimum length of the signal sequence for training and validation', default=5000)
     parser.add_argument('--max-len', type=int, required=True, help='Maximum length of the signal sequence for training and validation', default=400000)
     parser.add_argument('--skip', type=int, required=True, help='How many signal steps to skip at the beginning of each read', default=5000)
+    parser.add_argument('--valid-read-limit', type=int, required=True, help='How many reads to use for the validation procedure', default=5000)
     parser.add_argument('--workers', type=int, required=True, help='How many workers to use for dataloading. Each worker makes replicate of the dataset', default=32)
     parser.add_argument('--sampler', type=str, required=True, help='How to sample from training datasets. Options: ratio (each fast5 file has the same probability) or uniform (each experiment has the same probability)', default='ratio')
     parser.add_argument('--lr', type=float, required=True, help='Learning rate', default=1e-3)
     parser.add_argument('--warmup-steps', type=int, required=True, help='Learning rate warmup steps', default=1000)
-    parser.add_argument('--pos-weight', type=float, required=True, help='Positive class weight', default=1.0)
     parser.add_argument('--wd', type=float, required=True, help='Weight decay', default=0.01)
     
     parser.add_argument('--arch', type=str, required=True, help='Type of architecture to use')
@@ -60,33 +77,17 @@ def read_txt_to_list(file_path):
 
 #Configs
 def get_datasets_config(args):
-    train_pos_files = [read_txt_to_list(txt_path) for txt_path in args.training_positives_lists]
-    train_neg_files = [read_txt_to_list(txt_path) for txt_path in args.training_negatives_lists]
+    train_pos_lists = [read_txt_to_list(txt_path) for txt_path in args.training_positives_lists]
+    train_neg_lists = [read_txt_to_list(txt_path) for txt_path in args.training_negatives_lists]
+    
+    valid_pos_lists = [read_txt_to_list(txt_path) for txt_path in args.validation_positives_lists]
+    valid_neg_lists = [read_txt_to_list(txt_path) for txt_path in args.validation_negatives_lists]
 
-    #TODO rename, these are not used for validation, but only for intermediate plotting
-    valid_exp_to_files_pos = {
-        'Nanoid_pos_1':name_to_files['nano_pos_1']['test'], 
-        'Nanoid_pos_2':name_to_files['nano_pos_2']['test'], 
-        'Nanoid_pos_3':name_to_files['nano_pos_3']['test'], 
-    }
-
-    valid_exp_to_files_neg = {
-        'Nanoid_neg_1':name_to_files['nano_neg_1']['test'], 
-        'Nanoid_neg_2':name_to_files['nano_neg_2']['test'], 
-        'Nanoid_neg_3':name_to_files['nano_neg_3']['test'], 
-    }
-
-    valid_auroc_tuples = [
-        ('Nanoid_pos_1', 'Nanoid_neg_1', 'Nanoid_1'),
-        ('Nanoid_pos_2', 'Nanoid_neg_2', 'Nanoid_2'),
-        ('Nanoid_pos_3', 'Nanoid_neg_3', 'Nanoid_3'),
-    ]
     datasets = {
-        'train_pos_files':train_pos_files,
-        'train_neg_files':train_neg_files,
-        'valid_exp_to_files_pos':valid_exp_to_files_pos,
-        'valid_exp_to_files_neg':valid_exp_to_files_neg,
-        'valid_auroc_tuples':valid_auroc_tuples,
+        'train_pos_lists':train_pos_lists,
+        'train_neg_lists':train_neg_lists,
+        'valid_pos_lists':valid_pos_lists,
+        'valid_neg_lists':valid_neg_lists,
     }
     return datasets
 
@@ -94,7 +95,7 @@ def get_datasets_config(args):
 def get_dataloading_config(args):
     data_params = {
         'batch_size':1,
-        'valid_per_dset_read_limit':250,
+        'valid_read_limit':args.valid_read_limit,
         'shuffle_valid':False,
         'workers':args.workers,
         'max_len':args.max_len,
@@ -114,7 +115,6 @@ def get_model_config(args):
         'arch':arch_map[args.arch],
         'lr':args.lr,
         'warmup_steps':args.warmup_steps,
-        'pos_weight':args.pos_weight,
         'wd':args.wd,
         **arch_hyperparams,
     }
@@ -124,9 +124,8 @@ def get_training_config(args):
     training_params = {
         'grad_accumulation':args.grad_acc,
         'accelerator':'gpu', 
-        "early_stopping_metric":"2022 may valid auroc",
+        "early_stopping_metric":"valid_loss",
         'early_stopping_patience':args.early_stopping_patience,
-
     }
     return training_params
 
@@ -162,13 +161,13 @@ def train_save(datasets, model_params, data_params, training_params, logging_par
         save_top_k=1, 
         monitor=training_params['early_stopping_metric'], 
         filename='best-{step}-{'+training_params['early_stopping_metric'].replace(' ','_')+':.2f}',
-        mode='max',
+        mode='min',
         save_last=True, 
         save_weights_only=False
     )
     early_stopping_callback = EarlyStopping(
         monitor=training_params['early_stopping_metric'], 
-        mode="max", 
+        mode="min", 
         patience=training_params['early_stopping_patience'],
         verbose=True,
     )
@@ -183,11 +182,12 @@ def train_save(datasets, model_params, data_params, training_params, logging_par
     
     trainer= pl.Trainer(
         max_steps = 10000000, logger=logger, accelerator=training_params['accelerator'],
-        auto_lr_find=False, val_check_interval=val_logging_step,  
-        log_every_n_steps=logging_params['logging_step'], benchmark=False, precision=16,
+        val_check_interval=val_logging_step,  
+        log_every_n_steps=logging_params['logging_step'], 
+        benchmark=False,
+        # precision='16-mixed'
         callbacks=callbacks, 
         accumulate_grad_batches=training_params['grad_accumulation'],
-        resume_from_checkpoint=None,
         enable_progress_bar  = logging_params['enable_progress_bar'],
     )
 
