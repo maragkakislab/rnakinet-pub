@@ -48,7 +48,7 @@ rule create_split_fast5s:
         "outputs/splits/{experiment_name}/FAST5_{split}_SPLIT_DONE.txt"
     conda:
         "../envs/fast5_splitting.yaml"
-    threads: workflow.cores
+    threads: 16
     shell:
         """
         fast5_subset \
