@@ -11,10 +11,10 @@ import time
 import json
 import subprocess
 
-from rnamodif.data_utils.dataloading_uncut import UnlimitedReadsInferenceDataset
-from rnamodif.models.model_mine import MyModel
-from rnamodif.data_utils.workers import worker_init_fn_inference
-from rnamodif.workflow.scripts.helpers import arch_map
+from rnakinet.data_utils.dataloading_uncut import UnlimitedReadsInferenceDataset
+from rnakinet.models.model_mine import MyModel
+from rnakinet.data_utils.workers import worker_init_fn_inference
+from rnakinet.workflow.scripts.helpers import arch_map
         
 def main(args):
     stats = {}

@@ -44,7 +44,7 @@ training_configs  = {
         'lr':1e-3,
         'warmup_steps':100,
         'wd':0.01,
-        'arch':'rnakinet',
+        'arch':'rnakinet', #'rnakinet' (default) or 'rnakinet_lastonly' (different rnn pooling method)
         'arch_hyperparams':{},
         'grad_acc':64,
         'early_stopping_patience':50, 

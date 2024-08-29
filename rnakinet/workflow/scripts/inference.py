@@ -11,7 +11,9 @@ from tqdm import tqdm
 
 from rnakinet.data_utils.dataloading import UnlimitedReadsInferenceDataset
 from rnakinet.models.model import RNAkinet
+from rnakinet.models.model_experimental import RNAkinet_LastOnly
 from rnakinet.data_utils.workers import worker_init_fn_inference
+from rnakinet.workflow.scripts.helpers import arch_map
 
 def run(args):
     print('CUDA', torch.cuda.is_available())
@@ -20,7 +22,7 @@ def run(args):
     if(len(files)==0):
         raise Exception('No fast5 files found')
         
-    model = RNAkinet()
+    arch = arch_map[args.architecture]
     
     model.load_state_dict(torch.load(args.checkpoint, map_location='cpu')['state_dict'])
     model.eval()
@@ -72,6 +74,7 @@ def main():
     parser = argparse.ArgumentParser(description='Run prediction on FAST5 files')
     parser.add_argument('--path', type=str, required=True, help='Path to the folder containing FAST5 files.')
     parser.add_argument('--checkpoint', type=str, default=default_checkpoint, help='Path to the model checkpoint file.')
+    parser.add_argument('--architecture', type=str, default='rnakinet', help='Model architecture (rnakinet OR rnakinet_lastonly).')
     parser.add_argument('--csv_output', type=str, required=True, help='Path to the output csv file for pooled predictions.')
     parser.add_argument('--pickle_output', type=str, required=True, help='Path to the output pickle file for pooled predictions.')
     parser.add_argument('--max-workers', type=int, default=16, help='Maximum number of workers for data loading')

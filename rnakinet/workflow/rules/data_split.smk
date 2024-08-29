@@ -44,8 +44,9 @@ rule create_split_fast5s:
     input:
         ids = "outputs/splits/{experiment_name}/{split}_readids.txt", #The split needs to be non-empty txt file
         experiment_path = lambda wildcards: experiments_data[wildcards.experiment_name].get_path(),
-    output:
-        "outputs/splits/{experiment_name}/FAST5_{split}_SPLIT_DONE.txt"
+    output: #TODO add outputs/splits/expname/{split} folder as output for viz rules
+        "outputs/splits/{experiment_name}/FAST5_{split}_SPLIT_DONE.txt",
+        directory("outputs/splits/{experiment_name}/{split}"),
     conda:
         "../envs/fast5_splitting.yaml"
     threads: 16

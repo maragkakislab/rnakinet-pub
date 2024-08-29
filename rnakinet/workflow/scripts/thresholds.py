@@ -8,12 +8,13 @@ import matplotlib as mpl
 
 def plot_thresholds(pos_preds, neg_preds, pos_name, neg_name):
     thresholds = np.arange(0,1,0.01)
+    
     #Balanced accuracy
     accs = [np.mean([np.mean(neg_preds<t),np.mean(pos_preds>t)]) for t in thresholds]
+    plt.plot(thresholds, accs, label=f'{pos_name}\n{neg_name}', linewidth=2)
     
     mpl.rc('font',family='Arial')
     fontsize=8
-    plt.plot(thresholds, accs, label=f'{pos_name}\n{neg_name}', linewidth=2)
     plt.xlabel('Threshold', fontsize=fontsize)
     plt.ylabel('Balanced Accuracy', fontsize=fontsize)
     

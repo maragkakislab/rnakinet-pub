@@ -17,21 +17,27 @@ def plot_pr_curve(pos_preds, neg_preds, pos_name, neg_name):
     if(len(pos_df)>=len(neg_df)):
         longer_df = pos_df
         shorter_df = neg_df
+        minority = 'neg'
+        
     else:
         longer_df = neg_df
         shorter_df = pos_df
-        
+        minority = 'pos'
+    
     upsampled_df = shorter_df.sample(n=len(longer_df)-len(shorter_df), replace=True)
-    balanced_df = pd.concat([longer_df, shorter_df, upsampled_df])
-    predictions = balanced_df['predictions'].values
-    labels = balanced_df['labels'].values
+    shorter_df_upsampled = pd.concat([shorter_df, upsampled_df])
     
-    
-    precision, recall, thresholds = metrics.precision_recall_curve(labels, predictions)
+    for balance_ratio in [0.1, 1.0, len(shorter_df)/len(longer_df)]:
+        minority_amount_to_take = int(len(shorter_df_upsampled)*balance_ratio)
+        balanced_df = pd.concat([longer_df, shorter_df_upsampled[:minority_amount_to_take]])
+        predictions = balanced_df['predictions'].values
+        labels = balanced_df['labels'].values
 
-    auroc = metrics.auc(recall, precision)
-    
-    plt.plot(recall, precision, label=f'{pos_name}\n{neg_name}\nAUPRC {auroc:.2f}')
+        precision, recall, thresholds = metrics.precision_recall_curve(labels, predictions)
+
+        auroc = metrics.auc(recall, precision)
+
+        plt.plot(recall, precision, label=f'{pos_name}\n{neg_name}\nAUPRC {auroc:.2f} ratio: {balance_ratio} minority: {minority}')
     
     fontsize=8
     plt.xlabel('Recall', fontsize=fontsize)

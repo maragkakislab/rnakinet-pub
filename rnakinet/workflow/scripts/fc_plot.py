@@ -7,11 +7,28 @@ from plot_helpers import setup_palette
 from correlation_plot import correlation_plot
 
 def calc_fc(df, col, conditions_count, controls_count):
+    df = adjust_by_mean(df, col, conditions_count, controls_count)
+    
     df['ctrl_avg'] = df[[f'{col}_ctrl_{i}' for i in range(controls_count)]].mean(axis=1)
     df['cond_avg'] = df[[f'{col}_cond_{i}' for i in range(conditions_count)]].mean(axis=1)
+    
+    df['ctrl_avg'] = df[[f'{col}_ctrl_{i}' for i in range(controls_count)]].mean(axis=1)
+    df['cond_avg'] = df[[f'{col}_cond_{i}' for i in range(conditions_count)]].mean(axis=1)
+    
     #TODO not Fold Change - rename to someting better
+    
     df['Pred_FC'] = df['cond_avg']/df['ctrl_avg']
+    # df
     df['Relative modification increase (%)'] = ((df['cond_avg']/df['ctrl_avg'])-1)*100
+    return df
+
+def adjust_by_mean(df, col, conditions_count, controls_count):
+    for i in range(controls_count):
+        column_name = f'{col}_ctrl_{i}'
+        df[column_name] = df[column_name] / df[column_name].mean()
+    for i in range(conditions_count):
+        column_name = f'{col}_cond_{i}'
+        df[column_name] = df[column_name] / df[column_name].mean()
     return df
 
 def main(args):
@@ -21,6 +38,7 @@ def main(args):
     pred_col = args.pred_col
     target_col = args.target_col
     min_reads = args.min_reads
+    
     
     deseq_df = pd.read_csv(deseq_path, sep='\t', index_col=None).reset_index()
     deseq_df = deseq_df[~deseq_df['log2FoldChange'].isna()] #Dropping genes that dont contain fold change data
@@ -58,7 +76,11 @@ def main(args):
     
     print(joined_df.columns)
     print('POST', len(joined_df))
-    correlation_plot(joined_df, x_column='log2FoldChange',y_column='Relative modification increase (%)', x_label='Expression fold change (log2)\nHeat shock vs control', y_label='Relative modification increase (%)', output=args.output, share_axes=False)
+    y_column = 'Pred_log2FoldChange'
+    # y_column = 'Pred_FC'
+    
+    # y_column = 'Relative modification increase (%)'
+    correlation_plot(joined_df, x_column='log2FoldChange',y_column=y_column, x_label='Expression fold change (log2)\nHeat shock vs control', y_label=y_column, output=args.output, share_axes=False)
     
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Make FC correlation plot from differential expression analysis data and predictions.")

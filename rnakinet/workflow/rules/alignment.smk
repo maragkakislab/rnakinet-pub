@@ -18,7 +18,7 @@ rule align_to_genome:
 			-t {threads} \
 			-u b \
 			-p 1 \
-            -K 100M \
+		-K 100M \
 			--secondary=no \
 			{input.reference_path} \
 			{input.basecalls} \
@@ -26,7 +26,7 @@ rule align_to_genome:
 			| samtools sort --threads {threads} \
 			> {output.bam}  
 		samtools index {output.bam}
-		"""   
+		"""
         
 rule align_to_transcriptome:
     input:

@@ -8,12 +8,24 @@ from correlation_plot import correlation_plot
 from scipy.stats import spearmanr, pearsonr
 
 def calc_fc(df, col, conditions_count, controls_count):
+    df = adjust_by_mean(df, col, conditions_count, controls_count)
+    
     df['ctrl_avg'] = df[[f'{col}_ctrl_{i}' for i in range(controls_count)]].mean(axis=1)
     df['cond_avg'] = df[[f'{col}_cond_{i}' for i in range(conditions_count)]].mean(axis=1)
     #TODO not Fold Change - rename to someting better
     df['Pred_FC'] = df['cond_avg']/df['ctrl_avg']
     df['Relative modification increase (%)'] = ((df['cond_avg']/df['ctrl_avg'])-1)*100
     return df
+
+def adjust_by_mean(df, col, conditions_count, controls_count):
+    for i in range(controls_count):
+        column_name = f'{col}_ctrl_{i}'
+        df[column_name] = df[column_name] / df[column_name].mean()
+    for i in range(conditions_count):
+        column_name = f'{col}_cond_{i}'
+        df[column_name] = df[column_name] / df[column_name].mean()
+    return df
+
 
 def main(args):
     ctrl_paths = args.gene_level_preds_control
@@ -76,8 +88,14 @@ def main(args):
         if(len(sub_joined_df) < min_reads_to_plot):
             break
             
+            
+        sub_joined_df['Pred_log2FoldChange'].replace([np.inf, -np.inf], np.nan, inplace=True)
+        sub_joined_df = sub_joined_df.dropna()
+            
         x = sub_joined_df['log2FoldChange'].values
-        y = sub_joined_df['Relative modification increase (%)'].values
+        # y = sub_joined_df['Relative modification increase (%)'].values
+        y = sub_joined_df['Pred_log2FoldChange'].values
+        
         spearman = spearmanr(x,y).statistic
         pearson = pearsonr(x,y).statistic
         
@@ -90,10 +108,25 @@ def main(args):
     plt.figure(figsize=(1.5,1.5))
     
     plt.xlabel('Minimum read requirement', fontsize=fontsize)
-    plt.ylabel('Correlation of expression fold change (log2)\n and relative modification increase (%)', fontsize=fontsize)
+    # plt.ylabel('Correlation of expression fold change (log2)\n and relative modification increase (%)', fontsize=fontsize)
+    plt.ylabel('Correlation of expression fold change (log2)\n and Pred_log2FoldChange', fontsize=fontsize)
+    
+    #Limiting the range to a common one
+    # plt.gca().set_ylim([0, 0.8]) 
+    # plt.gca().set_yticks([0, 0.25, 0.5, 0.75]) 
     
     plt.plot(limits[:len(spearman_corrs)], spearman_corrs, label='spearman', color=palette[0])
     plt.plot(limits[:len(pearson_corrs)], pearson_corrs, label='pearson', color=palette[1])
+    
+    ymin, ymax = plt.ylim()
+    xmin, xmax = plt.xlim()
+    
+    print('YMAX',ymax)
+    print('YOOOOOO')
+    # plt.ylim(0, 0.798)
+    plt.plot([0.798]*50)
+    plt.plot([0]*50)
+    
     
     plt.xticks(fontsize=fontsize-2)
     plt.yticks(fontsize=fontsize-2)

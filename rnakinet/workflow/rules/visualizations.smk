@@ -39,7 +39,7 @@ rule create_classification_plot:
     output:
         'outputs/visual/predictions/{model_name}/{group}_{pooling}_pooling_{plot_type}.pdf'
     wildcard_constraints:
-        plot_type='(auroc|thresholds|pr_curve)'
+        plot_type='(auroc|thresholds|pr_curve|pr_ratios)'
     conda:
         '../envs/visual.yaml'
     params:
@@ -69,7 +69,7 @@ rule create_classification_plot_nanoid_model:
     output:
         'outputs/visual/predictions/NANOID/DMSO_1_REL5_2_{plot_type}.pdf'
     wildcard_constraints:
-        plot_type='(auroc|thresholds|pr_curve)'
+        plot_type='(auroc|thresholds|pr_curve|pr_ratios)'
     conda:
         '../envs/visual.yaml'
     params:
@@ -633,6 +633,75 @@ rule create_datastats:
             --lengths_output {output.lengths_output} \
             --group {wildcards.group} \
         """ 
+        
+rule create_classification_ratios_plot:
+    input:
+        neg_files = lambda wildcards: expand(
+            'outputs/predictions/{model_name}/{experiment_name}/{pooling}_pooling.pickle',
+            experiment_name=pos_neg_pairs[wildcards.pair_name]['negatives'],
+            model_name=wildcards.model_name,
+            pooling=wildcards.pooling,),
+        pos_files = lambda wildcards: expand(
+            'outputs/predictions/{model_name}/{experiment_name}/{pooling}_pooling.pickle', 
+            experiment_name=pos_neg_pairs[wildcards.pair_name]['positives'],
+            model_name=wildcards.model_name,
+            pooling=wildcards.pooling,
+        ),
+    output:
+        'outputs/visual/predictions/{model_name}/{pair_name}_{pooling}_pooling_{plot_type}_ratios.pdf'
+    wildcard_constraints:
+        plot_type='(auroc|thresholds|pr_curve)'
+    conda:
+        '../envs/visual.yaml'
+    params:
+        neg_experiments = lambda wildcards: pos_neg_pairs[wildcards.pair_name]['negatives'],
+        pos_experiments = lambda wildcards: pos_neg_pairs[wildcards.pair_name]['positives'],
+        neg_group_names = lambda wildcards: wildcards.pair_name,
+        pos_group_names = lambda wildcards: wildcards.pair_name,    
+        chosen_threshold = lambda wildcards: models_data[wildcards.model_name].get_threshold(),
+    shell:
+        """
+        python3 scripts/{wildcards.plot_type}_ratios.py \
+            --positives-in-order {input.pos_files} \
+            --negatives-in-order {input.neg_files} \
+            --positives-names-in-order {params.pos_experiments} \
+            --negatives-names-in-order {params.neg_experiments} \
+            --negatives-groups-in-order {params.neg_group_names} \
+            --positives-groups-in-order {params.pos_group_names} \
+            --output {output} \
+            --chosen_threshold {params.chosen_threshold} \
+            --model-name {wildcards.model_name} \
+        """
+
+rule create_classification_ratios_plot_nanoid_model:
+    input:
+        neg_files = 'outputs/predictions/nanoid/nanoid_hsa_dRNA_HeLa_DMSO_1_complete.pickle',
+        pos_files = 'outputs/predictions/nanoid/hsa_dRNA_HeLa_5EU_polyA_REL5_2_nanoid_complete.pickle',
+    output:
+        'outputs/visual/predictions/NANOID/DMSO_1_REL5_2_{plot_type}_ratios.pdf'
+    wildcard_constraints:
+        plot_type='(auroc|thresholds|pr_curve)'
+    conda:
+        '../envs/visual.yaml'
+    params:
+        neg_experiments = ['hsa_dRNA_HeLa_DMSO_1'],
+        pos_experiments = ['dRNA_HeLa_5EU_polyA_REL5_2'],
+        neg_group_names = ['NIA_HELA'],
+        pos_group_names = ['NIA_HELA'],    
+        chosen_threshold = 0.5,
+    shell:
+        """
+        python3 scripts/{wildcards.plot_type}_ratios.py \
+            --positives-in-order {input.pos_files} \
+            --negatives-in-order {input.neg_files} \
+            --positives-names-in-order {params.pos_experiments} \
+            --negatives-names-in-order {params.neg_experiments} \
+            --negatives-groups-in-order {params.neg_group_names} \
+            --positives-groups-in-order {params.pos_group_names} \
+            --output {output} \
+            --chosen_threshold {params.chosen_threshold} \
+            --model-name NANOIDMODEL \
+        """
         
 rule create_all_plots:
     input:
